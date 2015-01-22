@@ -26,6 +26,7 @@ class Event extends ElggObject {
 		$this->end_date = $params['new_end_date'];
 		$this->start_time = $params['new_start_time'];
 		$this->end_time = $params['new_end_time'];
+		$this->end_delta = $params['new_end_timestamp'] - $params['new_start_timestamp']; // how long this is in seconds
 
 		return true;
 	}
@@ -35,6 +36,7 @@ class Event extends ElggObject {
 		$this->end_timestamp = $params['new_end_timestamp'];
 		$this->end_date = $params['new_end_date'];
 		$this->end_time = $params['new_end_time'];
+		$this->end_delta = $params['new_end_timestamp'] - $this->start_timestamp; // how long this is in seconds
 		
 		return true;
 	}
@@ -111,4 +113,48 @@ class Event extends ElggObject {
 		return $params;
 	}
 
+	/**
+	 * returns an array of start times that a repeating event shows up on
+	 * within the given timestamp range
+	 * Note - assumes timestamp range is in increments of days
+	 * 
+	 * @return array
+	 */
+	public function getStartTimes($starttime, $endtime) {
+		if (!$this->isRecurring()) {
+			return array();
+		}
+		
+		$return = array();
+		
+		// iterate through each day of our range and see if this event shows up on any of those days
+		$time = $starttime;
+		$day = 60*60*24;
+		while ($time < $endtime) {
+			switch ($this->repeat_frequency) {
+				case 'daily':
+				// make a timestamp with the start time on this day and each additional day
+				if ($this->start_timestamp > $time) {
+					continue;
+				}
+				
+				if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $time) {
+					continue;
+				}
+				
+				$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								date('n', $time),
+								date('j', $time),
+								date('Y', $time)
+							);
+				break;
+			}
+			
+			$time += $day;
+		}
+		return $return;
+	}
 }

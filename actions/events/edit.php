@@ -25,7 +25,7 @@ $repeat = get_input('repeat');
 $repeat_end_after = get_input('repeat_end_after');
 $repeat_end_on = get_input('repeat_end_on');
 $repeat_frequency = get_input('repeat_frequency');
-$repeat_ends_type = get_input('repeat_ends_type');
+$repeat_end_type = get_input('repeat_end_type');
 
 // sanity check - events must have a start date, and an end date, and they must end after they start
 $start_timestamp = strtotime($start_date . ' ' . $start_time);
@@ -51,13 +51,50 @@ $event->start_time = $start_time;
 $event->end_time = $end_time;
 $event->start_timestamp = $start_timestamp;
 $event->end_timestamp = $end_timestamp;
-$event->all_day = $all_day;
-$event->repeat = $repeat;
-$event->repeat_end_after = $repeat_end_after;
-$event->repeat_end_on = $repeat_end_on;
-$event->repeat_frequency = $repeat_frequency;
-$event->repeat_ends_type = $repeat_ends_type;
+$event->end_delta = $end_timestamp - $start_timestamp; // how long the event is in seconds
+$event->all_day = $all_day ? 1 : 0;
 
+// repeating data
+$event->repeat = $repeat ? 1 : 0;
+$event->repeat_end_after = (int) $repeat_end_after; // number of occurrances
+$event->repeat_end_on = $repeat_end_on; // date YYYY-MM-DD that it ends on
+$event->repeat_frequency = $repeat_frequency; // string identifying the repeating frequency
+$event->repeat_end_type = $repeat_end_type; // how to determine how to end the repeat (never | occurrances | date)
+
+// determine when it actually stops repeating in terms of timestamp
+switch ($repeat_end_type) {
+	case 'on':
+		$repeat_end_timestamp = strtotime($repeat_end_on);
+		if ($repeat_end_timestamp === false) {
+			$repeat_end_timestamp = 0; //@TODO - what else could we do here?
+		}
+		break;
+	case 'after':
+		$params = array(
+			'start' => $start_timestamp,
+			'end' => $end_timestamp,
+			'frequency' => $repeat_frequency,
+			'after' => (int) $repeat_end_after
+		);
+		$repeat_end_timestamp = get_repeat_end_timestamp($params); error_log('end_ts: ' . $repeat_end_timestamp);
+		break;
+	default:
+		$repeat_end_timestamp = 0;
+		break;
+}
+
+$event->repeat_end_timestamp = $repeat_end_timestamp;
+//error_log(
+//"
+//repeat: {$event->repeat}
+//end_after: {$event->repeat_end_after}
+//end_on: {$event->repeat_end_on}
+//frequency: {$event->repeat_frequency}
+//ends_type: {$event->repeat_end_type}
+//end_ts: {$event->repeat_end_timestamp}
+//"
+//);
+//forward($calendar->getURL());
 if (!$event->save()) {
 	register_error(elgg_echo('events:error:save'));
 	forward($calendar->getURL());

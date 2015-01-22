@@ -7,6 +7,7 @@ const UPGRADE_VERSION = 20141215;
 const EVENT_CALENDAR_RELATIONSHIP = 'on_calendar';
 
 require_once __DIR__ . '/lib/hooks.php';
+require_once __DIR__ . '/lib/functions.php';
 
 elgg_register_event_handler('init', 'system', __NAMESPACE__ . '\\init');
 

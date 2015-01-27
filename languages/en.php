@@ -8,7 +8,8 @@ $english = array(
 	'events:success:save' => "Event Saved",
 	'events:error:invalid:guid' => "Invalid Event",
 	'events:error:invalid:deltas' => "Invalid move parameters",
-	'event_api:event:updated' => "Your event has been updated"
+	'event_api:event:updated' => "Your event has been updated",
+	'events:success:deleted' => "Event has been deleted",
 );
 
 add_translation("en", $english);

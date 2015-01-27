@@ -74,9 +74,10 @@ switch ($repeat_end_type) {
 			'start' => $start_timestamp,
 			'end' => $end_timestamp,
 			'frequency' => $repeat_frequency,
-			'after' => (int) $repeat_end_after
+			'after' => (int) $repeat_end_after,
+			'delta' => $end_timestamp - $start_timestamp
 		);
-		$repeat_end_timestamp = get_repeat_end_timestamp($params); error_log('end_ts: ' . $repeat_end_timestamp);
+		$repeat_end_timestamp = get_repeat_end_timestamp($params);
 		break;
 	default:
 		$repeat_end_timestamp = 0;
@@ -84,17 +85,7 @@ switch ($repeat_end_type) {
 }
 
 $event->repeat_end_timestamp = $repeat_end_timestamp;
-//error_log(
-//"
-//repeat: {$event->repeat}
-//end_after: {$event->repeat_end_after}
-//end_on: {$event->repeat_end_on}
-//frequency: {$event->repeat_frequency}
-//ends_type: {$event->repeat_end_type}
-//end_ts: {$event->repeat_end_timestamp}
-//"
-//);
-//forward($calendar->getURL());
+
 if (!$event->save()) {
 	register_error(elgg_echo('events:error:save'));
 	forward($calendar->getURL());

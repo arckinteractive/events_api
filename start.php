@@ -24,6 +24,7 @@ function init() {
 	elgg_register_action('events/edit', __DIR__ . '/actions/events/edit.php');
 	elgg_register_action('events/move', __DIR__ . '/actions/events/move.php');
 	elgg_register_action('events/resize', __DIR__ . '/actions/events/resize.php');
+	elgg_register_action('events/delete', __DIR__ . '/actions/events/delete.php');
 }
 
 
@@ -33,5 +34,5 @@ function calendar_url($calendar) {
 }
 
 function event_url($event) {
-	return 'calendar/event/' . $event->guid;
+	return 'calendar/events/view/' . $event->guid;
 }

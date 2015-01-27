@@ -130,17 +130,25 @@ class Event extends ElggObject {
 		// iterate through each day of our range and see if this event shows up on any of those days
 		$time = $starttime;
 		$day = 60*60*24;
+		$week = $day * 7;
+
+		$start_day = mktime(0, 0, 0, date('n', $this->start_timestamp), date('j', $this->start_timestamp), date('Y', $this->start_timestamp));
 		while ($time < $endtime) {
+			// make a timestamp with the start time on this day and each additional day
+			$this_day = mktime(0, 0, 0, date('n', $time), date('j', $time), date('Y', $time));
+
+			if ($start_day > $this_day) {
+				$time += $day;
+				continue;
+			}
+				
+			if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $this_day) {
+				$time += $day;
+				continue;
+			}
+			
 			switch ($this->repeat_frequency) {
 				case 'daily':
-				// make a timestamp with the start time on this day and each additional day
-				if ($this->start_timestamp > $time) {
-					continue;
-				}
-				
-				if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $time) {
-					continue;
-				}
 				
 				$return[] = mktime(
 								date('H', $this->start_timestamp),
@@ -150,10 +158,115 @@ class Event extends ElggObject {
 								date('j', $time),
 								date('Y', $time)
 							);
-				break;
+					$time += $day;
+					break;
+				case 'weekday':
+					$D = date('D', $this_day);
+					
+					if (in_array($D, array('Sat', 'Sun'))) {
+						$time += $day;
+						break;
+					}
+					$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								date('n', $time),
+								date('j', $time),
+								date('Y', $time)
+							);
+					$time += $day;
+					break;
+				case 'dailymwf':
+					$D = date('D', $this_day);
+
+					if (!in_array($D, array('Mon', 'Wed', 'Fri'))) {
+						$time += $day;
+						break;
+					}
+					$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								date('n', $time),
+								date('j', $time),
+								date('Y', $time)
+							);
+					
+					$time += $day;
+					break;
+					
+				case 'dailytt':
+					$D = date('D', $this_day);
+
+					if (!in_array($D, array('Tue', 'Thu'))) {
+						$time += $day;
+						break;
+					}
+					$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								date('n', $time),
+								date('j', $time),
+								date('Y', $time)
+							);
+					
+					$time += $day;
+					break;
+				case 'weekly':
+					if (date('D', $time) == date('D', $this->start_timestamp)) {
+						$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								date('n', $time),
+								date('j', $time),
+								date('Y', $time)
+							);
+						
+						$time += $week;
+						break;
+					}
+					$time += $day;
+					break;
+				case 'monthly':
+					if (date('j', $time) == date('j', $this->start_timestamp)) {
+						$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								date('n', $time),
+								date('j', $time),
+								date('Y', $time)
+							);
+						
+						$time += ($day * 28); // we can skip at least 28 days...
+						break;
+					}
+					$time += $day;
+					break;
+				case 'yearly':
+					$t_day = date('j', $time);
+					$s_day = date('j', $this->start_timestamp);
+					$t_month = date('n', $time);
+					$s_month = date('n', $this->start_timestamp);
+					if ($t_day == $s_day && $t_month == $s_month) {
+						$return[] = mktime(
+								date('H', $this->start_timestamp),
+								date('i', $this->start_timestamp),
+								date('s', $this->start_timestamp),
+								$t_month,
+								$t_day,
+								date('Y', $time)
+							);
+						
+						$time += ($day * 365); // we can skip at least 365 days...
+						break;
+					}
+					$time += $day;
+					break;
 			}
-			
-			$time += $day;
 		}
 		return $return;
 	}

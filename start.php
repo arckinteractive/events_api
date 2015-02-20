@@ -15,7 +15,7 @@ function init() {
 	elgg_register_class('Events\API\Calendar', __DIR__ . '/classes/Events/API/Calendar.php');
 	elgg_register_class('Events\API\Event', __DIR__ . '/classes/Events/API/Event.php');
 	
-	elgg_register_plugin_hook_handler('permissions_check', 'object', __NAMESPACE__ . '\\events_permissions');
+	elgg_register_plugin_hook_handler('permissions_check', 'object', __NAMESPACE__ . '\\event_permissions');
 	elgg_register_plugin_hook_handler('permissions_check', 'object', __NAMESPACE__ . '\\calendar_permissions');
 	
 	elgg_register_entity_url_handler('object', 'calendar', __NAMESPACE__ . '\\calendar_url');

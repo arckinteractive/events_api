@@ -2,26 +2,52 @@
 
 namespace Events\API;
 
+elgg_make_sticky_form('events/edit');
+
+$user = elgg_get_logged_in_user_entity();
+
 $guid = get_input('guid');
+$event = get_entity($guid);
+
+$container_guid = get_input('container_guid');
+$container = get_entity($container_guid);
+if (!$container) {
+	$container = $user;
+}
+
+if (!$container->canWriteToContainer($user->guid, 'object', Event::SUBTYPE)) {
+	register_error(elgg_echo('events:error:container_permissions'));
+	forward(REFERER);
+}
+
 $calendar_guid = get_input('calendar');
 $calendar = get_entity($calendar_guid);
 
-$event = get_entity($guid);
-if (!elgg_instanceof($event, 'object', 'event')) {
-	$event = new Event();
-	$event->owner_guid = elgg_get_logged_in_user_guid();
-	$event->container_guid = $calendar_guid; // contained by the original calendar
-	$event->access_id = get_input('access_id', get_default_access());
+if (!$calendar instanceof Calendar) {
+	$calendar = Calendar::getPubllicCalendar($user);
 }
 
-$title = htmlspecialchars(get_input('title', elgg_echo('events:edit:title:placeholder')), ENT_QUOTES, 'UTF-8');;
+if (!$event instanceof Event) {
+	$event = new Event();
+	$event->owner_guid = $user->guid;
+	$event->container_guid = $container->guid;
+}
+
+$title = htmlspecialchars(get_input('title', elgg_echo('events:edit:title:placeholder')), ENT_QUOTES, 'UTF-8');
 $description = get_input('description');
 $start_date = get_input('start_date');
 $end_date = get_input('end_date', $start_date);
-$start_time = get_input('start_time', '12:00am');
-$end_time = get_input('end_time', '12:00am');
 $all_day = get_input('all_day');
-$repeat = get_input('repeat');
+if ($all_day) {
+	// normalize so our queries produce valid results
+	$start_time = '12:00am';
+	$end_time = '11:59pm';
+} else {
+	$start_time = get_input('start_time', '12:00am');
+	$start_time_ts = strtotime($start_time);
+	$end_time = get_input('end_time', date('g:ia', $start_time + Util::SECONDS_IN_AN_HOUR));
+}
+$repeat = get_input('repeat', false);
 $repeat_end_after = get_input('repeat_end_after');
 $repeat_end_on = get_input('repeat_end_on');
 $repeat_frequency = get_input('repeat_frequency');
@@ -45,6 +71,8 @@ if ($end_timestamp < $start_timestamp) {
 // lets attempt to create the event
 $event->title = $title;
 $event->description = $description;
+$event->access_id = get_input('access_id', get_default_access());
+
 $event->start_date = $start_date;
 $event->end_date = $end_date;
 $event->start_time = $start_time;
@@ -55,44 +83,65 @@ $event->end_delta = $end_timestamp - $start_timestamp; // how long the event is 
 $event->all_day = $all_day ? 1 : 0;
 
 // repeating data
-$event->repeat = $repeat ? 1 : 0;
+$event->repeat = ($repeat) ? 1 : 0;
 $event->repeat_end_after = (int) $repeat_end_after; // number of occurrances
 $event->repeat_end_on = $repeat_end_on; // date YYYY-MM-DD that it ends on
-$event->repeat_frequency = $repeat_frequency; // string identifying the repeating frequency
-$event->repeat_end_type = $repeat_end_type; // how to determine how to end the repeat (never | occurrances | date)
+$event->repeat_frequency = ($repeat) ? $repeat_frequency : Util::FREQUENCY_ONCE; // string identifying the repeating frequency
+$event->repeat_end_type = ($repeat) ? $repeat_end_type : Util::REPEAT_END_ONE_TIME; // how to determine how to end the repeat (never | occurrances | date)
 
-// determine when it actually stops repeating in terms of timestamp
-switch ($repeat_end_type) {
-	case 'on':
-		$repeat_end_timestamp = strtotime($repeat_end_on);
-		if ($repeat_end_timestamp === false) {
-			$repeat_end_timestamp = 0; //@TODO - what else could we do here?
-		}
+unset($event->repeat_monthly_by);
+unset($event->repeat_weekly_days);
+
+switch ($event->repeat_frequency) {
+
+//	case Util::FREQUENCY_WEEKDAY :
+//		$event->repeat_frequency = Util::FREQUENCY_WEEKLY;
+//		$event->repeat_weekly_days = array(Util::MONDAY, Util::TUESDAY, Util::WEDNESDAY, Util::THURSDAY, Util::FRIDAY);
+//		break;
+//
+//	case Util::FREQUENCY_WEEKDAY_ODD :
+//		$event->repeat_frequency = Util::FREQUENCY_WEEKLY;
+//		$event->repeat_weekly_days = array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY);
+//		break;
+//
+//	case Util::FREQUENCY_WEEKDAY_EVEN :
+//		$event->repeat_frequency = Util::FREQUENCY_WEEKLY;
+//		$event->repeat_weekly_days = array(Util::TUESDAY, Util::THURSDAY);
+//		break;
+
+	case Util::FREQUENCY_WEEKLY :
+		$repeat_weekly_days = get_input('repeat_weekly_days');
+		$repeat_weekly_days = (is_array($repeat_weekly_days)) ? $repeat_weekly_days : date('D', $event->start_timestamp);
+		$event->repeat_weekly_days = $repeat_weekly_days;
 		break;
-	case 'after':
-		$params = array(
-			'start' => $start_timestamp,
-			'end' => $end_timestamp,
-			'frequency' => $repeat_frequency,
-			'after' => (int) $repeat_end_after,
-			'delta' => $end_timestamp - $start_timestamp
-		);
-		$repeat_end_timestamp = get_repeat_end_timestamp($params);
-		break;
-	default:
-		$repeat_end_timestamp = 0;
+
+	case Util::FREQUENCY_MONTHLY :
+		$repeat_monthly_by = get_input('repeat_monthly_by', Util::REPEAT_MONTHLY_BY_DATE);
+		$event->repeat_monthly_by = $repeat_monthly_by;
 		break;
 }
 
-$event->repeat_end_timestamp = $repeat_end_timestamp;
+$event->repeat_end_timestamp = $event->calculateRepeatEndTimestamp();
+
+// recurring events can not finish recurring before event ends
+if ($event->repeat_end_timestamp && $event->repeat_end_timestamp < $event->end_timestamp) {
+	$event->repeat_end_timestamp = $event->end_timestamp;
+}
 
 if (!$event->save()) {
 	register_error(elgg_echo('events:error:save'));
 	forward($calendar->getURL());
 }
 
-$calendar->addEvent($event);
+add_to_river('river/object/event/create', 'create', $event->owner_guid, $event->guid);
+
+elgg_clear_sticky_form('events/edit');
 
 system_message(elgg_echo('events:success:save'));
 
-forward($calendar->getURL());
+if ($calendar instanceof Calendar) {
+	$calendar->addEvent($event);
+	forward($calendar->getURL());
+} else {
+	forward($event->getURL());
+}

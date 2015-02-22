@@ -3,53 +3,31 @@
 namespace Events\API;
 
 /**
- * determines the who canEdit an event
- * if you can edit the container calendar, you can edit the event
+ * Determines who can add events to a calendar
+ * We are using ElggObject::canWriteToContainer() to determine Calendar::canAddEvent(),
+ * as there is no way to check relationship permissions
  * 
- * @param type $h
- * @param type $t
- * @param type $r
- * @param type $p
+ * @param string $hook   "container_permissions_check"
+ * @param string $type   "object"
+ * @param bool   $return Permission
+ * @param array  $params Hook params
+ * @return bool
  */
-function event_permissions($h, $t, $r, $p) {
-	$user = $p['user'];
-	$event = $p['event'];
-	
-	if (!elgg_instanceof($event, 'object', 'event')) {
-		return $r;
-	}
-	
-	$container = $event->getContainerEntity();
-	if (elgg_instanceof($container, 'object', 'calendar')) {
-		return $container->canEdit($user->guid);
-	}
-	
-	return $r;
-}
+function calendar_permissions($hook, $type, $return, $params) {
 
+	$subtype = elgg_extract('subtype', $params);
+	$calendar = elgg_extract('container', $params);
+	$user = elgg_extract('user', $params);
 
-/**
- * determines the who canEdit a calendar
- * if you can edit the container (user|group), you can edit the event
- * 
- * @param type $h
- * @param type $t
- * @param type $r
- * @param type $p
- */
-function calendar_permissions($h, $t, $r, $p) {
-	$user = $p['user'];
-	$calendar = $p['entity'];
-	
-	if (!elgg_instanceof($calendar, 'object', 'calendar')) {
-		return $r;
+	if (!$calendar instanceof Calendar || $subtype != Event::SUBTYPE) {
+		return $return;
 	}
 	
 	$container = $calendar->getContainerEntity();
 	if (elgg_instanceof($container)) {
-		// should allow group members to edit group calendar
-		return $container->canWriteToContainer($user->guid);
+		// should allow group members to add events to a calendar if they can add events to a group
+		return $container->canWriteToContainer($user->guid, 'object', Event::SUBTYPE);
 	}
 	
-	return $r;
+	return $return;
 }

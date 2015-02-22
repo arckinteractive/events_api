@@ -7,7 +7,7 @@ $event = get_entity($guid);
 $day_delta = get_input('day_delta', 0);
 $minute_delta = get_input('minute_delta', 0);
 
-if (!elgg_instanceof($event, 'object', 'event')) {
+if (!$event instanceof Event) {
 	register_error(elgg_echo('events:error:invalid:guid'));
 	forward(REFERER);
 }

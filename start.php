@@ -32,7 +32,6 @@ function init() {
 	elgg_register_action('events/delete', __DIR__ . '/actions/events/delete.php');
 }
 
-}
 
 /**
  * Run upgrade scripts

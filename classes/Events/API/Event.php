@@ -4,18 +4,68 @@ namespace Events\API;
 
 use ElggObject;
 
+/**
+ * Event object
+ *
+ * @property integer $start_date
+ * @property integer $end_date
+ * @property integer $start_time
+ * @property integer $end_time
+ * @property integer $start_timestamp
+ * @property integer $end_timestamp
+ * @property integer $end_delta
+ * @property bool    $all_day
+ * @property bool    $repeat
+ * @property integer $repeat_end_after
+ * @property integer $repeat_end_on
+ * @property string  $repeat_frequency
+ * @property string  $repeat_end_type
+ * @property string  $repeat_monthly_by
+ * @property integer $repeat_end_timestamp
+ * @property mixed   $repeat_weekly_days
+ */
 class Event extends ElggObject {
 
+	const SUBTYPE = 'event';
+
+	/**
+	 * {@inheritdoc}
+	 */
 	protected function initializeAttributes() {
 		parent::initializeAttributes();
-
-		$this->attributes['subtype'] = "event";
+		$this->attributes['subtype'] = self::SUBTYPE;
 	}
 
 	/**
+	 * Returns events title
+	 * @return string
+	 */
+	public function getDisplayName() {
+		return ($this->title) ? : elgg_echo('events:edit:title:placeholder');
+	}
+
+	/**
+	 * Returns canonical URL with instance start time added as query element
+	 * 
+	 * @param int $start_timestamp Start time of the instance
+	 * @param int $calendar_guid   GUID of the calendar in context
+	 * @return string
+	 */
+	public function getURL($start_timestamp = 0, $calendar_guid = 0) {
+		if (!$start_timestamp) {
+			$start_timestamp = $this->getNextOccurrence();
+		}
+		$url = parent::getURL();
+		return elgg_http_add_url_query_elements($url, array_filter(array(
+			'ts' => $start_timestamp,
+			'calendar' => $calendar_guid,
+		)));
+	}
+	/**
 	 * Perform a move action with calculated parameters
 	 * 
-	 * @param type $params
+	 * @param array $params New event parameters
+	 * @return boolean
 	 */
 	public function move($params) {
 		//update the event
@@ -31,29 +81,46 @@ class Event extends ElggObject {
 		return true;
 	}
 
+	/**
+	 * Extends event duration
+	 *
+	 * @param array $params New end parameters
+	 * @return boolean
+	 */
 	public function resize($params) {
 		//update the event
 		$this->end_timestamp = $params['new_end_timestamp'];
 		$this->end_date = $params['new_end_date'];
 		$this->end_time = $params['new_end_time'];
 		$this->end_delta = $params['new_end_timestamp'] - $this->start_timestamp; // how long this is in seconds
-		
+
 		return true;
 	}
 
+	/**
+	 * Adds an event to a calendar
+	 *
+	 * @param int $calendar_guid GUID of the calendar
+	 * @return boolean
+	 */
 	public function addToCalendar($calendar_guid) {
 		$calendar = get_entity($calendar_guid);
-		if (elgg_instanceof($calendar, 'object', 'calendar')) {
+		if ($calendar instanceof Calendar) {
 			$calendar->addEvent($this);
 			return true;
 		}
-
 		return false;
 	}
 
+	/**
+	 * Removes an event from a calendar
+	 *
+	 * @param int $calendar_guid GUID of the calendar
+	 * @return boolean
+	 */
 	public function removeFromCalendar($calendar_guid) {
 		$calendar = get_entity($calendar_guid);
-		if (elgg_instanceof($calendar, 'object', 'calendar')) {
+		if ($calendar instanceof Calendar) {
 			$calendar->removeEvent($this);
 			return true;
 		}
@@ -61,16 +128,20 @@ class Event extends ElggObject {
 		return false;
 	}
 
+	/**
+	 * Checks if the event is recurring
+	 * @return boolean
+	 */
 	public function isRecurring() {
 		return (bool) $this->repeat;
 	}
 
 	/**
-	 * calculate parameters for a move action
+	 * Calculates parameters for a move action
 	 * 
-	 * @param type $day_delta
-	 * @param type $minute_delta
-	 * @param type $all_day
+	 * @param int  $day_delta    Positive or negative number of days from the original event day
+	 * @param int  $minute_delta Position or negative number of minutes from the origin event time
+	 * @param bool $all_day      All day event?
 	 * @return array
 	 */
 	public function getMoveParams($day_delta, $minute_delta, $all_day) {
@@ -79,7 +150,7 @@ class Event extends ElggObject {
 		$end_timestamp = $this->end_timestamp;
 
 		$time_diff = $end_timestamp - $start_timestamp;
-		$new_start_timestamp = $start_timestamp + (60 * 60 * 24 * $day_delta) + (60 * $minute_delta);
+		$new_start_timestamp = $start_timestamp + ($day_delta * Util::SECONDS_IN_AN_HOUR * $day_delta) + ($minute_delta * Util::SECONDS_IN_A_MINUTE);
 		$new_end_timestamp = $new_start_timestamp + $time_diff;
 
 		$params = array(
@@ -96,12 +167,18 @@ class Event extends ElggObject {
 		return $params;
 	}
 
-	public function getResizeParams($day_delta, $minute_delta) {
+	/**
+	 * Calculates parameters for the resize action
+	 *
+	 * @param int $day_delta    Positive or negative number of days from the original event end
+	 * @param int $minute_delta Positive or negative number of minutes from the original event end
+	 * @return array
+	 */
+	public function getResizeParams($day_delta = 0, $minute_delta = 0) {
 		// calculate new dates
 		$end_timestamp = $this->end_timestamp;
 
-		$new_end_timestamp = $end_timestamp + (60 * 60 * 24 * $day_delta) + (60 * $minute_delta);
-
+		$new_end_timestamp = $end_timestamp + ($day_delta * Util::SECONDS_IN_A_DAY) + ($minute_delta * Util::SECONDS_IN_A_MINUTE);
 
 		$params = array(
 			'entity' => $this,
@@ -114,160 +191,268 @@ class Event extends ElggObject {
 	}
 
 	/**
-	 * returns an array of start times that a repeating event shows up on
-	 * within the given timestamp range
+	 * Returns an array of start times for an event within a given timestamp range
 	 * Note - assumes timestamp range is in increments of days
 	 * 
 	 * @return array
 	 */
 	public function getStartTimes($starttime, $endtime) {
+
 		if (!$this->isRecurring()) {
-			return array();
+			return array($this->start_timestamp);
 		}
-		
-		$return = array();
-		
+
+		$start_times = array();
+
+		// 00:00:00 on the day of first event occurence
+		$start_day = (int) Util::getDayStart($this->start_timestamp);
+
+		$test_day = $starttime;
+
 		// iterate through each day of our range and see if this event shows up on any of those days
-		$time = $starttime;
-		$day = 60*60*24;
-		$week = $day * 7;
+		while ($test_day < $endtime) {
 
-		$start_day = mktime(0, 0, 0, date('n', $this->start_timestamp), date('j', $this->start_timestamp), date('Y', $this->start_timestamp));
-		while ($time < $endtime) {
-			// make a timestamp with the start time on this day and each additional day
-			$this_day = mktime(0, 0, 0, date('n', $time), date('j', $time), date('Y', $time));
+			$shows = false;
 
-			if ($start_day > $this_day) {
-				$time += $day;
+			// normalize timestamp to beginning of day
+			$test_day = (int) Util::getDayStart($test_day);
+
+			// next increment
+			$next_test_day = $test_day + Util::SECONDS_IN_A_DAY;
+
+			// event has no more occurences after this day
+			if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $test_day) {
+				break;
+			}
+
+			// event repetitions will start in the future from this day
+			if ($start_day > $test_day) {
+				$test_day = $next_test_day;
 				continue;
 			}
-				
-			if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $this_day) {
-				$time += $day;
-				continue;
-			}
-			
+
 			switch ($this->repeat_frequency) {
-				case 'daily':
-				
-				$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								date('n', $time),
-								date('j', $time),
-								date('Y', $time)
-							);
-					$time += $day;
+				case Util::FREQUENCY_DAILY:
+					$shows = true;
 					break;
-				case 'weekday':
-					$D = date('D', $this_day);
-					
-					if (in_array($D, array('Sat', 'Sun'))) {
-						$time += $day;
-						break;
-					}
-					$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								date('n', $time),
-								date('j', $time),
-								date('Y', $time)
-							);
-					$time += $day;
-					break;
-				case 'dailymwf':
-					$D = date('D', $this_day);
 
-					if (!in_array($D, array('Mon', 'Wed', 'Fri'))) {
-						$time += $day;
-						break;
-					}
-					$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								date('n', $time),
-								date('j', $time),
-								date('Y', $time)
-							);
-					
-					$time += $day;
+				case Util::FREQUENCY_WEEKDAY:
+					$D = date('D', $test_day);
+					$shows = !in_array($D, array(Util::SATURDAY, Util::SUNDAY));
 					break;
-					
-				case 'dailytt':
-					$D = date('D', $this_day);
 
-					if (!in_array($D, array('Tue', 'Thu'))) {
-						$time += $day;
-						break;
-					}
-					$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								date('n', $time),
-								date('j', $time),
-								date('Y', $time)
-							);
-					
-					$time += $day;
+				case Util::FREQUENCY_WEEKDAY_ODD:
+					$D = date('D', $test_day);
+					$shows = in_array($D, array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY));
 					break;
-				case 'weekly':
-					if (date('D', $time) == date('D', $this->start_timestamp)) {
-						$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								date('n', $time),
-								date('j', $time),
-								date('Y', $time)
-							);
-						
-						$time += $week;
-						break;
-					}
-					$time += $day;
+
+				case Util::FREQUENCY_WEEKDAY_EVEN:
+					$D = date('D', $test_day);
+					$shows = in_array($D, array(Util::TUESDAY, Util::THURSDAY));
 					break;
-				case 'monthly':
-					if (date('j', $time) == date('j', $this->start_timestamp)) {
-						$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								date('n', $time),
-								date('j', $time),
-								date('Y', $time)
-							);
-						
-						$time += ($day * 28); // we can skip at least 28 days...
-						break;
+
+				case Util::FREQUENCY_WEEKLY:
+					$repeat_weekly_days = $this->repeat_weekly_days;
+					if (!$repeat_weekly_days) {
+						$repeat_weekly_days = date('D', $this->start_timestamp);
 					}
-					$time += $day;
+					if (!is_array($repeat_weekly_days)) {
+						$repeat_weekly_days = array($repeat_weekly_days);
+					}
+					$D = date('D', $test_day);
+					$shows = in_array($D, $repeat_weekly_days);
 					break;
-				case 'yearly':
-					$t_day = date('j', $time);
-					$s_day = date('j', $this->start_timestamp);
-					$t_month = date('n', $time);
-					$s_month = date('n', $this->start_timestamp);
-					if ($t_day == $s_day && $t_month == $s_month) {
-						$return[] = mktime(
-								date('H', $this->start_timestamp),
-								date('i', $this->start_timestamp),
-								date('s', $this->start_timestamp),
-								$t_month,
-								$t_day,
-								date('Y', $time)
-							);
-						
-						$time += ($day * 365); // we can skip at least 365 days...
-						break;
+
+				case Util::FREQUENCY_MONTHLY:
+					if ($this->repeat_monthly_by == Util::REPEAT_MONTHLY_BY_DAY_OF_WEEK) {
+						$shows = Util::isOnSameWeekDayOfMonth($test_day, $this->start_timestamp);
+						if ($shows) {
+							// we can skip 4 weeks
+							$next_test_day = strtotime('+28 days', $test_day);
+						}
+					} else {
+						$shows = Util::isOnSameDayOfMonth($test_day, $this->start_timestamp);
+						if ($shows) {
+							// we can skip a month
+							$next_test_day = strtotime('+1 month', $test_day);
+						}
 					}
-					$time += $day;
+					break;
+
+				case Util::FREQUENCY_YEARLY:
+					$shows = Util::isOnSameDayOfYear($test_day, $this->start_timestamp);
+					if ($shows) {
+						// we can skip a year
+						$next_test_day = strtotime('+1 year', $test_day);
+					}
 					break;
 			}
+
+			if ($shows) {
+				$occurrence = (int) Util::getTimeOfDay($this->start_timestamp, $test_day);
+				array_push($start_times, $occurrence);
+			}
+
+			$test_day = $next_test_day;
 		}
-		return $return;
+		return $start_times;
 	}
+
+	/**
+	 * Calculates and returns the last timestamp for event recurrences
+	 * @return int
+	 */
+	public function calculateRepeatEndTimestamp() {
+
+		// determine when it actually stops repeating in terms of timestamp
+		switch ($this->repeat_end_type) {
+
+			case Util::REPEAT_END_ON:
+				$repeat_end_timestamp = strtotime($this->repeat_end_on);
+				if ($repeat_end_timestamp === false) {
+					$repeat_end_timestamp = 0; //@TODO - what else could we do here?
+				}
+				return $repeat_end_timestamp;
+
+			case Util::REPEAT_END_AFTER:
+				return $this->calculateEndAfterTimestamp($this->repeat_end_after);
+
+			case Util::REPEAT_END_NEVER :
+				return 0;
+
+			default :
+				if ($this->repeat) {
+					return 0;
+				}
+				return $this->start_timestamp;
+		}
+	}
+
+	/**
+	 * Calculates the end timestamp of the last event in a sequence of occurences
+	 *
+	 * @param int $occurences Max number of occurences
+	 * @return int
+	 */
+	public function calculateEndAfterTimestamp($occurences = 1) {
+		switch ($this->repeat_frequency) {
+
+			case Util::FREQUENCY_DAILY:
+				$end_timestamp = $this->end_timestamp + (Util::SECONDS_IN_A_DAY * ($occurences - 1));
+				break;
+
+			case Util::FREQUENCY_WEEKDAY:
+				$end = 1;
+				$time = $this->start_timestamp;
+				while ($end < $occurences) {
+					$time += Util::SECONDS_IN_A_DAY;
+					$day = date('D', $time);
+					if (!in_array($day, array(Util::SATURDAY, Util::SUNDAY))) {
+						$end++;
+					}
+				}
+				$end_timestamp = $time + $this->end_delta;
+				break;
+
+			case Util::FREQUENCY_WEEKDAY_ODD:
+				$end = 1;
+				$time = $this->start_timestamp;
+				while ($end < $occurences) {
+					$time += Util::SECONDS_IN_A_DAY;
+
+					$day = date('D', $time);
+					if (in_array($day, array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY))) {
+						$end++;
+					}
+				}
+				$end_timestamp = $time + $this->end_delta;
+				break;
+
+			case Util::FREQUENCY_WEEKDAY_EVEN:
+				$end = 1;
+				$time = $this->start_timestamp;
+				while ($end < $occurences) {
+					$time += Util::SECONDS_IN_A_DAY;
+
+					$day = date('D', $time);
+					if (in_array($day, array(Util::TUESDAY, Util::THURSDAY))) {
+						$end++;
+					}
+				}
+				$end_timestamp = $time + $this->end_delta;
+				break;
+
+			case Util::FREQUENCY_WEEKLY:
+				$repeat_weekly_days = $this->repeat_weekly_days;
+				if (!$repeat_weekly_days) {
+					$repeat_weekly_days = date('D', $this->start_timestamp);
+				}
+				if (!is_array($repeat_weekly_days)) {
+					$repeat_weekly_days = array($repeat_weekly_days);
+				}
+				$end = 1;
+				$time = $this->start_timestamp;
+				while ($end < $occurences) {
+					$time += Util::SECONDS_IN_A_DAY;
+					$day = date('D', $time);
+					if (in_array($day, $repeat_weekly_days)) {
+						$end++;
+					}
+				}
+				$end_timestamp = $time + $this->end_delta;
+				break;
+
+			case Util::FREQUENCY_MONTHLY:
+
+				$end = 0;
+				$time = $this->start_timestamp;
+				while ($end < $occurences) {
+					if ($this->repeat_monthly_by == Util::REPEAT_MONTHLY_BY_DAY_OF_WEEK) {
+						if (Util::isOnSameWeekDayOfMonth($time, $this->start_timestamp)) {
+							$end++;
+							$time = strtotime('+28 days', $test_day);
+						} else {
+							$time += Util::SECONDS_IN_A_DAY;
+						}
+					} else {
+						if (Util::isOnSameDayOfMonth($time, $this->start_timestamp)) {
+							$end++;
+							$time = strtotime('+1 month', $test_day);
+						} else {
+							$time += Util::SECONDS_IN_A_DAY;
+						}
+					}
+				}
+
+				$end_timestamp = $time + $this->end_delta;
+				break;
+
+			case Util::FREQUENCY_YEARLY:
+				$end_year = date('Y', $this->end_timestamp);
+				$end_timestamp = mktime(
+						date('H', $this->end_timestamp), date('i', $this->end_timestamp), date('s', $this->end_timestamp), date('n', $this->end_timestamp), date('j', $this->end_timestamp), $end_year + $occurences - 1
+				);
+				break;
+		}
+
+		return $end_timestamp;
+	}
+
+	/**
+	 * Validates that one of the event occurences starts at the provided timestamp
+	 * 
+	 * @param int $start_timestamp Timestamp to validate
+	 * @return bool
+	 */
+	public function isValidStartTime($start_timestamp) {
+		return in_array($start_timestamp, $this->getStartTimes($start_timestamp - 1, $start_timestamp + 1));
+	}
+
+	/**
+	 * @todo: Create Event::getNextOccurrence() method
+	 */
+	public function getNextOccurrence() {
+		
+	}
+
 }

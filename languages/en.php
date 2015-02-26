@@ -35,6 +35,8 @@ $english = array(
 	'events:calendar:add_event:error:invalid_guid' => "Invalid Calendar or Event",
 	'events:calendar:add_event:error:noaccess' => "You are not allowed to add events to this calendar",
 	'events:calendar:add_event:already_on' => 'Event is already on the calendar',
+	'events:calendar:add_event:success' => 'Event has been added to the calendar',
+	'events:calendar:add_event:error' => 'Event could not be added to your calendar',
 	
 );
 

@@ -78,6 +78,27 @@ class UtilTest extends PHPUnit_Framework_TestCase {
 		$this->assertEquals($this->util->getTimeOfDay($event_ts, $day_ts), $expected);
 	}
 
+	/**
+	 * @dataProvider providerGetDayOfWeek
+	 */
+	public function testGetDayOfWeek($ts, $expected) {
+		$this->assertEquals($this->util->getDayOfWeek($ts), $expected);
+	}
+
+	public function providerGetDayOfWeek() {
+		$ts = 1424692800; // Monday, 23-Feb-15 12:00:00 UTC
+		return array(
+			array($ts, Util::MONDAY),
+			array($ts + Util::SECONDS_IN_A_DAY, Util::TUESDAY),
+			array($ts + Util::SECONDS_IN_A_DAY * 2, Util::WEDNESDAY),
+			array($ts + Util::SECONDS_IN_A_DAY * 3, Util::THURSDAY),
+			array($ts + Util::SECONDS_IN_A_DAY * 4, Util::FRIDAY),
+			array($ts + Util::SECONDS_IN_A_DAY * 5, Util::SATURDAY),
+			array($ts + Util::SECONDS_IN_A_DAY * 6, Util::SUNDAY),
+		);
+
+	}
+
 	public function testGetWeekOfMonth() {
 
 		$ts1 = 1424602684; // Sunday, 22-Feb-15 10:58:04 UTC

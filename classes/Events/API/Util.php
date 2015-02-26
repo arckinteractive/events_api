@@ -155,6 +155,19 @@ class Util {
 	}
 
 	/**
+	 * Returns day of week
+	 * 
+	 * @param mixed  $ts     Date/time value
+	 * @param string $format Format of the return value
+	 * @return string
+	 */
+	public static function getDayOfWeek($ts = 'now', $format = 'D') {
+		$dt = new DateTime;
+		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
+		return $dt->format($format);
+	}
+
+	/**
 	 * Returns the week number if a month (e.g. 2nd week of the month)
 	 * 
 	 * @param mixed $ts Date/time value

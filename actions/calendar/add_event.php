@@ -19,7 +19,7 @@ if (!$calendar instanceof Calendar || !$event instanceof Event) {
 	forward(REFERER);
 }
 
-if (!$calendar->hasEvent($event)) {
+if ($calendar->hasEvent($event)) {
 	system_message(elgg_echo('events:calendar:add_event:already_on'));
 	forward(REFERER);
 }

@@ -440,8 +440,13 @@ class Event extends ElggObject {
 		if (!$after_timestamp) {
 			$after_timestamp = time();
 		}
-		
-		$next = $this->calculateEndAfterTimestamp(1, $after_timestamp, false);
+	
+		$next = false;
+		if ($this->isRecurring()) {
+			$next = $this->calculateEndAfterTimestamp(1, $after_timestamp, false);
+		} else if ($after_timestamp < $this->start_timestamp) {
+			$next = $this->start_timestamp;
+		}
 
 		if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $next) {
 			return false;

@@ -124,8 +124,10 @@ class Calendar extends ElggObject {
 			foreach ($start_times as $start_time) {
 				$instances[] = array(
 					'id' => $event->guid,
-					'start' => $start_time,
-					'end' => $start_time + $event->end_delta,
+					'start' => date('c', $start_time),
+					'start_timestamp' => $start_time,
+					'end' => date('c', $start_time + $event->end_delta),
+					'end_timestamp' => $start_time + $event->end_delta,
 					'title' => $event->getDisplayName(),
 					'description' => $event->description,
 					'url' => $event->getURL($start_time, $this->guid),
@@ -345,8 +347,8 @@ class Calendar extends ElggObject {
 
 			$guid = (int) elgg_extract('id', $instance);
 			$created = (int) elgg_extract('timeCreated', $instance);
-			$start = (int) elgg_extract('start', $instance);
-			$end = (int) elgg_extract('end', $instance);
+			$start = (int) elgg_extract('start_timestamp', $instance);
+			$end = (int) elgg_extract('end_timestamp', $instance);
 			$allDay = (bool) elgg_extract('allDay', $instance);
 			$summary = elgg_extract('title', $instance, '');
 			$description = elgg_extract('description', $instance, '');

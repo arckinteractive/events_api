@@ -24,7 +24,7 @@ $calendar_guid = get_input('calendar');
 $calendar = get_entity($calendar_guid);
 
 if (!$calendar instanceof Calendar) {
-	$calendar = Calendar::getPubllicCalendar($user);
+	$calendar = Calendar::getPublicCalendar($user);
 }
 
 if (!$event instanceof Event) {

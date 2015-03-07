@@ -20,6 +20,11 @@ if (!$container->canWriteToContainer($user->guid, 'object', Event::SUBTYPE)) {
 	forward(REFERER);
 }
 
+if (!get_input('title')) {
+	register_error(elgg_echo('events:error:empty_title'));
+	forward(REFERER);
+}
+
 $calendar_guid = get_input('calendar');
 $calendar = get_entity($calendar_guid);
 
@@ -27,10 +32,13 @@ if (!$calendar instanceof Calendar) {
 	$calendar = Calendar::getPublicCalendar($user);
 }
 
+$editing = true;
 if (!$event instanceof Event) {
 	$event = new Event();
 	$event->owner_guid = $user->guid;
 	$event->container_guid = $container->guid;
+	
+	$editing = false;
 }
 
 $title = htmlspecialchars(get_input('title', elgg_echo('events:edit:title:placeholder')), ENT_QUOTES, 'UTF-8');
@@ -94,21 +102,6 @@ unset($event->repeat_weekly_days);
 
 switch ($event->repeat_frequency) {
 
-//	case Util::FREQUENCY_WEEKDAY :
-//		$event->repeat_frequency = Util::FREQUENCY_WEEKLY;
-//		$event->repeat_weekly_days = array(Util::MONDAY, Util::TUESDAY, Util::WEDNESDAY, Util::THURSDAY, Util::FRIDAY);
-//		break;
-//
-//	case Util::FREQUENCY_WEEKDAY_ODD :
-//		$event->repeat_frequency = Util::FREQUENCY_WEEKLY;
-//		$event->repeat_weekly_days = array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY);
-//		break;
-//
-//	case Util::FREQUENCY_WEEKDAY_EVEN :
-//		$event->repeat_frequency = Util::FREQUENCY_WEEKLY;
-//		$event->repeat_weekly_days = array(Util::TUESDAY, Util::THURSDAY);
-//		break;
-
 	case Util::FREQUENCY_WEEKLY :
 		$repeat_weekly_days = get_input('repeat_weekly_days');
 		$repeat_weekly_days = (is_array($repeat_weekly_days)) ? $repeat_weekly_days : date('D', $event->start_timestamp);
@@ -133,7 +126,10 @@ if (!$event->save()) {
 	forward($calendar->getURL());
 }
 
-add_to_river('river/object/event/create', 'create', $event->owner_guid, $event->guid);
+if (!$editing) {
+	// if we're adding to the river we should provide a view
+	add_to_river('river/object/event/create', 'create', $event->owner_guid, $event->guid);
+}
 
 elgg_clear_sticky_form('events/edit');
 

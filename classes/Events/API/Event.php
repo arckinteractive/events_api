@@ -3,6 +3,7 @@
 namespace Events\API;
 
 use ElggObject;
+use ElggBatch;
 
 /**
  * Event object
@@ -60,6 +61,38 @@ class Event extends ElggObject {
 			'ts' => $start_timestamp,
 			'calendar' => $calendar_guid,
 		)));
+	}
+	
+	
+	/**
+	 * Get all calendars this event is on
+	 * 
+	 * @param array custom parameters to override the default egef
+	 * @param bool $public - limit to only personal public calendars?
+	 */
+	public function getCalendars($params = array(), $public = false) {
+		$defaults = array(
+			'type' => 'object',
+			'subtype' => 'calendar',
+			'relationship' => Calendar::EVENT_CALENDAR_RELATIONSHIP,
+			'relationship_guid' => $this->guid,
+			'limit' => false
+		);
+		
+		$options = array_merge($defaults, $params);
+		
+		if ($public) {
+			$options['metadata_name_value_pairs'][] = array(
+				'name' => '__public_calendar',
+				'value' => true
+			);
+		}
+		
+		if ($options['count']) {
+			return elgg_get_entities_from_relationship($options);
+		}
+		
+		return new ElggBatch('elgg_get_entities_from_relationship', $options);				
 	}
 
 	/**

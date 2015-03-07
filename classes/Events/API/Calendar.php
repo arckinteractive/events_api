@@ -141,7 +141,6 @@ class Calendar extends ElggObject {
 		usort($instances, function($a, $b) {
 			if ($a['start'] == $b['start']) {
 				return ($a['id'] < $b['id']) ? -1 : 1;
-				;
 			}
 			return ($a['start'] < $b['start']) ? -1 : 1;
 		});
@@ -354,7 +353,7 @@ class Calendar extends ElggObject {
 			$description = elgg_extract('description', $instance, '');
 			$location = elgg_extract('location', $instance, '');
 
-			$iCalEvent = new iCalEvent($event->guid);
+			$iCalEvent = new iCalEvent($guid);
 			$iCalEvent
 					->created(new DateTime("@$created"))
 					->between(new DateTime("@$start"), new DateTime("@$end"))
@@ -399,6 +398,32 @@ class Calendar extends ElggObject {
 		}
 
 		return $calendar;
+	}
+	
+	/**
+	 * Retrieves all calendars for a container
+	 * 
+	 * @param type $container
+	 * @param type $count
+	 */
+	public static function getCalendars($container, $count = false) {
+		if (!$container instanceof ElggEntity) {
+			return false;
+		}
+		
+		$options = array(
+			'type' => 'object',
+			'subtype' => 'calendar',
+			'container_guid' => $container->guid,
+			'limit' => false
+		);
+		
+		if ($count) {
+			$options['count'] = true;
+			return elgg_get_entities($options);
+		}
+		
+		return new ElggBatch('elgg_get_entities', $options);
 	}
 
 	/**

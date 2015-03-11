@@ -292,7 +292,13 @@ class Calendar extends ElggObject {
 	 * @return boolean
 	 */
 	public function addEvent($event) {
-		return add_entity_relationship($event->guid, self::EVENT_CALENDAR_RELATIONSHIP, $this->guid);
+		$result = add_entity_relationship($event->guid, self::EVENT_CALENDAR_RELATIONSHIP, $this->guid);
+
+		if ($result) {
+			// allow events to fire after confirmation that it has been added to the calendar
+			elgg_trigger_event('events_api', 'add_to_calendar', array('event' => $event, 'calendar' => $this));
+		}
+		return $result;
 	}
 
 	/**
@@ -302,7 +308,14 @@ class Calendar extends ElggObject {
 	 * @return boolean
 	 */
 	public function removeEvent($event) {
-		return remove_entity_relationship($event->guid, self::EVENT_CALENDAR_RELATIONSHIP, $this->guid);
+		$result = remove_entity_relationship($event->guid, self::EVENT_CALENDAR_RELATIONSHIP, $this->guid);
+		
+		if ($result) {
+			// allow events to fire after confirmation that it has been added to the calendar
+			elgg_trigger_event('events_api', 'remove_from_calendar', array('event' => $event, 'calendar' => $this));
+		}
+		
+		return $result;
 	}
 
 	/**

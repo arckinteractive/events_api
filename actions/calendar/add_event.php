@@ -7,32 +7,35 @@ $user = elgg_get_logged_in_user_entity();
 $event_guid = get_input('event_guid');
 $event = get_entity($event_guid);
 
-$calendar_guid = get_input('calendar_guid');
-if ($calendar_guid) {
-	$calendar = get_entity($calendar_guid);
-} else {
-	$calendar = Calendar::getPublicCalendar($user);
+$calendars = (array)get_input('calendars');
+
+$all_calendars = Calendar::getCalendars(elgg_get_logged_in_user_entity());
+if (!$all_calendars) {
+	$default_calendar = Calendar::getPublicCalendar(elgg_get_logged_in_user_entity());
+	$all_calendars = array($default_calendar);
+}
+	
+foreach ($all_calendars as $c) {
+	if (!in_array($c->guid, $calendars)) {
+		$c->removeEvent($event);
+	}
+}
+	
+foreach ($calendars as $guid) {
+	$calendar = get_entity($guid);
+	if ($calendar instanceof Calendar && $calendar->canAddEvent()) {
+		$calendar->addEvent($event);
+	}
 }
 
-if (!$calendar instanceof Calendar || !$event instanceof Event) {
-	register_error(elgg_echo('events:calendar:add_event:error:invalid_guid'));
-	forward(REFERER);
-}
+system_message(elgg_echo('events:calendars:added'));
 
-if ($calendar->hasEvent($event)) {
-	system_message(elgg_echo('events:calendar:add_event:already_on'));
-	forward(REFERER);
+//what if we just orphaned an event?
+if (!$event->getCalendars(array('count' => true))) {
+	// add it back to the default calendar?
+	$default_calendar = Calendar::getPublicCalendar($event->getContainerEntity());
+	$default_calendar->addEvent($event);
+	system_message(elgg_echo('events:calendars:orphan:added'));
 }
-
-if (!$calendar->canAddEvent()) {
-	register_error(elgg_echo('events:calendar:add_event:error:noaccess'));
-	forward(REFERER);
-}
-
-if ($calendar->addEvent($event)) {
-	system_message(elgg_echo('events:calendar:add_event:success'));
-} else {
-	register_error(elgg_echo('events:calendar:add_event:error'));
-}
-
-forward(REFERRER);
+	
+forward(REFERER);

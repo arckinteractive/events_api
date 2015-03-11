@@ -42,6 +42,7 @@ if (!$event instanceof Event) {
 }
 
 $title = htmlspecialchars(get_input('title', elgg_echo('events:edit:title:placeholder')), ENT_QUOTES, 'UTF-8');
+$location = get_input('location');
 $description = get_input('description');
 $start_date = get_input('start_date');
 $end_date = get_input('end_date', $start_date);
@@ -125,6 +126,8 @@ if (!$event->save()) {
 	register_error(elgg_echo('events:error:save'));
 	forward($calendar->getURL());
 }
+
+$event->setLocation($location);
 
 if (!$editing) {
 	// if we're adding to the river we should provide a view

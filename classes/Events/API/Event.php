@@ -362,6 +362,10 @@ class Event extends ElggObject {
 			}
 
 			switch ($this->repeat_frequency) {
+				default:
+					$occurrences = 0;
+					break;
+					
 				case Util::FREQUENCY_DAILY:
 					$shows = true;
 					break;

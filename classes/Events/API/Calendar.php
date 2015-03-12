@@ -8,9 +8,9 @@ use ElggCrypto;
 use ElggEntity;
 use ElggObject;
 use Exception;
-use Ical\Component\Calendar as iCalCalendar;
 use Ical\Component\Event as iCalEvent;
 use Ical\Feed as iCalFeed;
+use vcalendar;
 
 /**
  * Calendar object
@@ -142,9 +142,10 @@ class Calendar extends ElggObject {
 					'end_timestamp' => $start_time + $event->end_delta,
 					'title' => $event->getDisplayName(),
 					'description' => $event->description,
+					'host' => $event->getOwnerEntity()->email,
 					'url' => $event->getURL($start_time, $this->guid),
 					'allDay' => $event->all_day,
-					'timeCreated' => $event->time_created,
+					'time_created' => $event->time_created,
 					'location' => $event->getLocation(),
 				);
 			}
@@ -344,18 +345,19 @@ class Calendar extends ElggObject {
 		$params['view'] = 'ical';
 		$params['u'] = $user->guid;
 		$params['t'] = $this->getUserToken($user->guid);
-		
+
 		return elgg_http_add_url_query_elements($base_url, $params);
 	}
 
 	/**
 	 * Returns an iCal feed for this calendar
 	 *
-	 * @param int $starttime Range start timestamp
-	 * @param int $endtime   Range end timestamp
+	 * @param int    $starttime Range start timestamp
+	 * @param int    $endtime   Range end timestamp
+	 * @param string $filename  Filename used for output file
 	 * @return string
 	 */
-	public function getIcalFeed($starttime = null, $endtime = null) {
+	public function getIcalFeed($starttime = null, $endtime = null, $filename = 'calendar.ics') {
 
 		if (is_null($starttime)) {
 			$starttime = time();
@@ -364,34 +366,43 @@ class Calendar extends ElggObject {
 			$endtime = strtotime('+1 year', $starttime);
 		}
 
-		$iCalCalendar = new iCalCalendar($this->guid);
-
 		$instances = $this->getAllEventInstances($starttime, $endtime);
+
+		$config = array(
+			'unique_id' => $this->guid,
+			'filename' => $filename,
+		);
+
+		$v = new vcalendar($config);
+		$v->setProperty('method', 'PUBLISH');
+		$v->setProperty("x-wr-calname", $this->getDisplayName());
+		$v->setProperty("X-WR-CALDESC", strip_tags($this->description));
+		$v->setProperty("X-WR-TIMEZONE", date_default_timezone_get());
 		foreach ($instances as $instance) {
+			$vevent = & $v->newComponent('vevent');
 
-			$guid = (int) elgg_extract('id', $instance);
-			$created = (int) elgg_extract('timeCreated', $instance);
-			$start = (int) elgg_extract('start_timestamp', $instance);
-			$end = (int) elgg_extract('end_timestamp', $instance);
-			$allDay = (bool) elgg_extract('allDay', $instance);
-			$summary = elgg_extract('title', $instance, '');
-			$description = elgg_extract('description', $instance, '');
-			$location = elgg_extract('location', $instance, '');
+			$st = getdate((int) $instance['start_timestamp']);
+			if ($instance['allDay']) {
+				$vevent->setProperty('dtstart', date("Ymd", $instance['start_timestamp']), array('VALUE' => 'DATE'));
+				$vevent->setProperty('dtend', date("Ymd", $instance['end_timestamp']), array('VALUE' => 'DATE'));
+			} else {
+				$vevent->setProperty('dtstart', date("Ymd\THis\Z", $instance['start_timestamp']));
+				$vevent->setProperty('dtend', date("Ymd\THis\Z", $instance['end_timestamp']));
+			}
+			$vevent->setProperty('class', 'PUBLIC');
+			$vevent->setProperty('organizer', $instance['host']);
+			$vevent->setProperty('uid', $instance['id']);
+			$vevent->setProperty('url', $instance['url']);
+			$vevent->setProperty('location', $instance['location']);
+			$vevent->setProperty('summary', strip_tags($instance['title']));
+			$vevent->setProperty('description', strip_tags($instance['description']));
 
-			$iCalEvent = new iCalEvent($guid);
-			$iCalEvent
-					->created(new DateTime("@$created"))
-					->between(new DateTime("@$start"), new DateTime("@$end"))
-					->allDay($allDay)
-					->summary($summary)
-					->description($description)
-					->location($location);
-
-			$iCalCalendar->addEvent($iCalEvent);
+			/**
+			 * @todo: add reminders
+			 */
 		}
 
-		$feed = new iCalFeed(array($iCalCalendar));
-		return $feed->toIcal();
+		$v->returnCalendar();
 	}
 
 	/**

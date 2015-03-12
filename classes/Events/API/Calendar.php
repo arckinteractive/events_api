@@ -393,7 +393,7 @@ class Calendar extends ElggObject {
 			}
 			$vevent->setProperty('class', 'PUBLIC');
 			$vevent->setProperty('organizer', $instance['host']);
-			$vevent->setProperty('uid', $instance['id']);
+			$vevent->setProperty('uid', $instance['id'] . '-' . $instance['start_timestamp']);
 			$vevent->setProperty('url', $instance['url']);
 			$vevent->setProperty('location', $instance['location']);
 			$vevent->setProperty('summary', strip_tags($instance['title']));

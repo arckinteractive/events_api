@@ -2,14 +2,11 @@
 
 namespace Events\API;
 
-use DateTime;
 use ElggBatch;
 use ElggCrypto;
 use ElggEntity;
 use ElggObject;
 use Exception;
-use Ical\Component\Event as iCalEvent;
-use Ical\Feed as iCalFeed;
 use vcalendar;
 
 /**
@@ -357,7 +354,7 @@ class Calendar extends ElggObject {
 	 * @param string $filename  Filename used for output file
 	 * @return string
 	 */
-	public function getIcalFeed($starttime = null, $endtime = null, $filename = 'calendar.ics') {
+	public function toIcal($starttime = null, $endtime = null, $filename = 'calendar.ics') {
 
 		if (is_null($starttime)) {
 			$starttime = time();
@@ -370,7 +367,12 @@ class Calendar extends ElggObject {
 
 		$config = array(
 			'unique_id' => $this->guid,
-			'filename' => $filename,
+			// setting these explicitly until icalcreator bug #14 is solved
+			'allowEmpty' => true,
+			'nl' => "\r\n",
+			'format' => 'iCal',
+			'delimiter' => DIRECTORY_SEPARATOR,
+			'filename' => $filename, // this is last until #14 is solved
 		);
 
 		$v = new vcalendar($config);

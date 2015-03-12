@@ -4,6 +4,7 @@ namespace Events\API;
 
 use DateTime;
 use ElggBatch;
+use ElggCrypto;
 use ElggEntity;
 use ElggObject;
 use Exception;
@@ -15,6 +16,7 @@ use Ical\Feed as iCalFeed;
  * Calendar object
  *
  * @property bool $__public_calendar
+ * @property bool $__token
  */
 class Calendar extends ElggObject {
 
@@ -27,6 +29,16 @@ class Calendar extends ElggObject {
 	protected function initializeAttributes() {
 		parent::initializeAttributes();
 		$this->attributes['subtype'] = self::SUBTYPE;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function save() {
+		if (!$this->__token) {
+			$this->__token = $this->generateToken();
+		}
+		return parent::save();
 	}
 
 	/**
@@ -309,12 +321,12 @@ class Calendar extends ElggObject {
 	 */
 	public function removeEvent($event) {
 		$result = remove_entity_relationship($event->guid, self::EVENT_CALENDAR_RELATIONSHIP, $this->guid);
-		
+
 		if ($result) {
 			// allow events to fire after confirmation that it has been added to the calendar
 			elgg_trigger_event('events_api', 'remove_from_calendar', array('event' => $event, 'calendar' => $this));
 		}
-		
+
 		return $result;
 	}
 
@@ -327,13 +339,13 @@ class Calendar extends ElggObject {
 	 */
 	public function getIcalURL($base_url = '', array $params = array()) {
 
-		$params['view'] = 'ical';
-		$url = elgg_http_add_url_query_elements($base_url, $params);
+		$user = elgg_get_logged_in_user_entity();
 
-		/**
-		 * @todo: Add WS token for accessibility by external services
-		 */
-		return $url;
+		$params['view'] = 'ical';
+		$params['u'] = $user->guid;
+		$params['t'] = $this->getUserToken($user->guid);
+		
+		return elgg_http_add_url_query_elements($base_url, $params);
 	}
 
 	/**
@@ -412,7 +424,7 @@ class Calendar extends ElggObject {
 
 		return $calendar;
 	}
-	
+
 	/**
 	 * Retrieves all calendars for a container
 	 * 
@@ -423,19 +435,19 @@ class Calendar extends ElggObject {
 		if (!$container instanceof ElggEntity) {
 			return false;
 		}
-		
+
 		$options = array(
 			'type' => 'object',
 			'subtype' => 'calendar',
 			'container_guid' => $container->guid,
 			'limit' => false
 		);
-		
+
 		if ($count) {
 			$options['count'] = true;
 			return elgg_get_entities($options);
 		}
-		
+
 		return new ElggBatch('elgg_get_entities', $options);
 	}
 
@@ -464,6 +476,35 @@ class Calendar extends ElggObject {
 		));
 
 		return (empty($calendars)) ? Calendar::createPublicCalendar($container) : $calendars[0];
+	}
+
+	/**
+	 * Generates a token
+	 * @return string
+	 */
+	protected function generateToken() {
+		return md5($this->guid . ElggCrypto::getRandomString(31));
+	}
+
+	/**
+	 * Generates a user token
+	 *
+	 * @param int $user_guid GUID of the user
+	 * @return string
+	 */
+	public function getUserToken($user_guid = 0) {
+		if (!$user_guid) {
+			$user_guid = elgg_get_logged_in_user_guid();
+		}
+		return md5($user_guid . $this->getToken());
+	}
+
+	/**
+	 * Returns a stored token
+	 * @return string
+	 */
+	public function getToken() {
+		return $this->__token;
 	}
 
 }

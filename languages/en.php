@@ -37,6 +37,9 @@ $english = array(
 	'events:calendar:add_event:already_on' => 'Event is already on the calendar',
 	'events:calendar:add_event:success' => 'Event has been added to the calendar',
 	'events:calendar:add_event:error' => 'Event could not be added to your calendar',
+
+	'events:cancel:success' => 'Event has been cancelled',
+	
 	
 );
 

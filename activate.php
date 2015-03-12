@@ -1,6 +1,5 @@
 <?php
 
-use Events\API\Calendar as Calendar2;
 namespace Events\API;
 
 require_once __DIR__ . '/vendor/autoload.php';

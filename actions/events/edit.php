@@ -129,6 +129,34 @@ if (!$event->save()) {
 
 $event->setLocation($location);
 
+elgg_delete_metadata(array(
+	'guids' => $event->guid,
+	'metadata_names' => 'reminder',
+	'limit' => 0,
+));
+
+$has_reminders = get_input('has_reminders');
+$reminders = get_input('reminders', array());
+if ($has_reminders && !empty($reminders)) {
+	$size = count($reminders['value']) - 1; // last one is the template
+	for ($i = 0; $i < $size; $i++) {
+		$reminder_value = round($reminders['value'][$i]);
+		switch ($reminders['increment'][$i]) {
+			default :
+			case 'minute' :
+				$reminder_value *= Util::SECONDS_IN_A_MINUTE;
+				break;
+			case 'hour' :
+				$reminder_value *= Util::SECONDS_IN_AN_HOUR;
+				break;
+			case 'day' :
+				$reminder_value *= Util::SECONDS_IN_A_DAY;
+				break;
+		}
+		create_metadata($event->guid, 'reminder', $reminder_value, '', $event->owner_guid, $event->access_id, true);
+	}
+}
+
 if (!$editing) {
 	// if we're adding to the river we should provide a view
 	add_to_river('river/object/event/create', 'create', $event->owner_guid, $event->guid);

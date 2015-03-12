@@ -24,6 +24,8 @@ use ElggBatch;
  * @property string  $repeat_monthly_by
  * @property integer $repeat_end_timestamp
  * @property mixed   $repeat_weekly_days
+ * @property mixed   $reminder
+ * @property mixed   $cancelled_instance
  */
 class Event extends ElggObject {
 
@@ -329,7 +331,16 @@ class Event extends ElggObject {
 
 			$test_day = $next_test_day;
 		}
-		return $start_times;
+
+		$cancelled = $this->cancelled_instance;
+		if (!$cancelled) {
+			$cancelled = array();
+		}
+		if (!is_array($cancelled)) {
+			$cancelled = array($cancelled);
+		}
+
+		return array_diff($start_times, $cancelled);
 	}
 
 	/**
@@ -502,4 +513,11 @@ class Event extends ElggObject {
 		return $start_timestamp == $this->getNextOccurrence($start_timestamp - 1);
 	}
 
+	/** 
+	 * Checks if the event has reminders
+	 * @return bool
+	 */
+	public function hasReminders() {
+		return (!empty($this->reminder));
+	}
 }

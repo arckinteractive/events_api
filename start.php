@@ -30,6 +30,8 @@ function init() {
 	elgg_register_action('events/move', __DIR__ . '/actions/events/move.php');
 	elgg_register_action('events/resize', __DIR__ . '/actions/events/resize.php');
 	elgg_register_action('events/delete', __DIR__ . '/actions/events/delete.php');
+	elgg_register_action('events/cancel', __DIR__ . '/actions/events/cancel.php');
+
 }
 
 

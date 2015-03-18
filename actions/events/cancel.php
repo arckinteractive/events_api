@@ -8,7 +8,16 @@ $event = get_entity($guid);
 
 $ts = get_input('ts');
 
-if (!$event || !$event->canEdit() || !$event->isRecurring() || !$event->isValidStartTime($ts)) {
+if (!$event instanceof Event) {
+	register_error(elgg_echo('events:error:invalid:guid'));
+	forward(REFERER);
+}
+
+if (!$event->isRecurring()) {
+	action('events/delete');
+}
+
+if (!$event->canEdit() || !$event->isValidStartTime($ts)) {
 	register_error(elgg_echo('events:error:invalid:guid'));
 	forward(REFERER);
 }

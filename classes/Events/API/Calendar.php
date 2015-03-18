@@ -343,7 +343,8 @@ class Calendar extends ElggObject {
 		$params['u'] = $user->guid;
 		$params['t'] = $this->getUserToken($user->guid);
 
-		return elgg_http_add_url_query_elements($base_url, $params);
+		$url = elgg_http_add_url_query_elements($base_url, $params);
+		return elgg_normalize_url($url);
 	}
 
 	/**

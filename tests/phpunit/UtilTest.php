@@ -2,6 +2,8 @@
 
 namespace Events\API;
 
+use DateTime;
+use DateTimeZone;
 use PHPUnit_Framework_TestCase;
 
 class UtilTest extends PHPUnit_Framework_TestCase {
@@ -67,7 +69,6 @@ class UtilTest extends PHPUnit_Framework_TestCase {
 		$this->assertEquals($this->util->getTime($ts, $format), $expected_format);
 	}
 
-
 	public function testGetTimeOfDay() {
 
 		$day_ts = 1424545971; // Saturday, 21-Feb-15 19:12:51 UTC
@@ -96,7 +97,6 @@ class UtilTest extends PHPUnit_Framework_TestCase {
 			array($ts + Util::SECONDS_IN_A_DAY * 5, Util::SATURDAY),
 			array($ts + Util::SECONDS_IN_A_DAY * 6, Util::SUNDAY),
 		);
-
 	}
 
 	public function testGetWeekOfMonth() {
@@ -161,4 +161,43 @@ class UtilTest extends PHPUnit_Framework_TestCase {
 		$weekdays = array('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun');
 		$this->assertEquals($this->util->getWeekdays(), $weekdays);
 	}
+
+	/**
+	 * @dataProvider providerTestConvert
+	 */
+	public function testGetOffset($ts, $timezone, $target_timezone, $expected) {
+		$this->assertEquals($expected, $this->util->getOffset($ts, $timezone, $target_timezone));
+	}
+
+	public function providerTestConvert() {
+		return array(
+			array(
+				// CET to UTC
+				1426766677, // Thursday, 19-Mar-15 12:04:37 Europe/Berlin
+				'Europe/Berlin',
+				'UTC',
+				-3600
+			),
+			array(
+				// CEST to UTC
+				1430827200, // Tuesday, 05-May-15 12:00:00 UTC
+				'UTC',
+				'Europe/Berlin',
+				7200
+			),
+			array(
+				1426775069, // Thursday, 19-Mar-15 14:24:29 America/New_York
+				'America/New_York',
+				'Europe/Berlin',
+				18000
+			),
+			array(
+				1426775069, // Thursday, 19-Mar-15 14:24:29 Europe/Berlin
+				'Europe/Berlin',
+				'America/New_York',
+				-18000
+			),
+		);
+	}
+
 }

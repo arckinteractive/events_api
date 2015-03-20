@@ -3,6 +3,8 @@
 namespace Events\API;
 
 use DateTime;
+use DateTimeZone;
+use ElggUser;
 
 class Util {
 
@@ -48,6 +50,18 @@ class Util {
 	const REPEAT_MONTHLY_BY_DAY_OF_WEEK = 'day_of_week';
 
 	/**
+	 * Timezones
+	 */
+	const UTC = 'UTC';
+	const TIMEZONE_FORMAT_FULL = "\(\G\M\TP\) e - H:i T";
+	const TIMEZONE_FORMAT_ABBR = "T";
+	const TIMEZONE_FORMAT_NAME = "e";
+	const TIMEZONE_SORT_ALPHA = 'alpha';
+	const TIMEZONE_SORT_OFFSET = 'offset';
+
+	static $timezone;
+
+	/**
 	 * Returns a timestamp for 0:00:00 of the date of the time
 	 * 
 	 * @param mixed  $ts     Date/time value
@@ -55,7 +69,7 @@ class Util {
 	 * @return string
 	 */
 	public static function getDayStart($ts = 'now', $format = 'U') {
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		$dt->setTime(0, 0, 0);
 		return $dt->format($format);
@@ -69,7 +83,7 @@ class Util {
 	 * @return string
 	 */
 	public static function getDayEnd($ts = 'now', $format = 'U') {
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		$dt->setTime(23, 59, 59);
 		return $dt->format($format);
@@ -83,7 +97,7 @@ class Util {
 	 * @return string
 	 */
 	public static function getMonthStart($ts = 'now', $format = 'U') {
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 
 		$month = (int) $dt->format('m'); // month
@@ -104,7 +118,7 @@ class Util {
 	 */
 	public static function getMonthEnd($ts = 'now', $format = 'U') {
 
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 
 		$dt->modify('+1 month');
@@ -129,7 +143,7 @@ class Util {
 	 */
 	public static function getTime($ts = 'now', $format = 'U') {
 
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 
 		$time = $dt->format('H') * self::SECONDS_IN_AN_HOUR;
@@ -161,8 +175,8 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getDayOfWeek($ts = 'now', $format = 'D') {
-		$dt = new DateTime;
+	public static function getDayOfWeek($ts = 'now', $timezone = Util::UTC, $format = 'D') {
+		$dt = new DateTime(null, new DateTimeZone($timezone));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		return $dt->format($format);
 	}
@@ -174,7 +188,7 @@ class Util {
 	 * @return int
 	 */
 	public static function getWeekOfMonth($ts = 'now') {
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		$week_num_ts = date('W', $dt->getTimestamp());
 		$week_num_month_start = date('W', self::getMonthStart($ts));
@@ -188,7 +202,7 @@ class Util {
 	 * @return int
 	 */
 	public static function getWeekDayNthInMonth($ts = 'now') {
-		$dt = new DateTime;
+		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		return ceil($dt->format('j') / 7);
 	}
@@ -270,6 +284,171 @@ class Util {
 			Util::FREQUENCY_MONTHLY => elgg_echo('events_ui:repeat:monthly'),
 			Util::FREQUENCY_YEARLY => elgg_echo('events_ui:repeat:yearly'),
 		);
+	}
+
+	/**
+	 * Calculates the offset between timezones at a given date/time
+	 *
+	 * @param mixed  $ts              Date/time value
+	 * @param string $timezone        Timezone of the date/time value
+	 * $param string $target_timezone Target timezone
+	 * @return int
+	 */
+	public static function getOffset($ts = 'now', $timezone = self::UTC, $target_timezone = self::UTC) {
+
+		if (!self::isValidTimezone($timezone) || !self::isValidTimezone($target_timezone)) {
+			return 0;
+		}
+
+		$dta = new DateTime(null, new DateTimeZone($timezone));
+		$dtb = new DateTime(null, new DateTimeZone($target_timezone));
+
+		if (is_int($ts)) {
+			$dta->setTimestamp($ts);
+			$dtb->setTimestamp($ts);
+		} else {
+			$dta->modify($ts);
+			$dtb->modify($ts);
+		}
+		
+		return $dtb->getOffset() - $dta->getOffset();
+	}
+	
+	/**
+	 * Returns a list of supported timezones
+	 * Triggers 'timezones','events_api' hook if $filter is set to true
+	 *
+	 * @param boolean $filter  If false, returns all supported PHP timezones
+	 * @param mixed   $format  Timezone label date format; if false, uses elgg_echo($tz_id)
+	 * @param mixed   $ts      Optional timestamp for label format
+	 * @param string  $sort_by 'alpha' or 'offset'
+	 * @return array
+	 */
+	public static function getTimezones($filter = true, $format = false, $ts = 'now', $sort = self::TIMEZONE_SORT_ALPHA) {
+
+		$tz_ids = DateTimeZone::listIdentifiers();
+
+		$defaults = array();
+
+		foreach ($tz_ids as $tz_id) {
+			$defaults[$tz_id] = Util::getTimezoneLabel($tz_id, $format, $ts);
+		}
+
+		switch ($sort) {
+			case self::TIMEZONE_SORT_ALPHA :
+				asort($defaults);
+				break;
+			case self::TIMEZONE_SORT_OFFSET :
+				uksort($defaults, array(self, 'compareTimezonesByOffset'));
+				break;
+		}
+
+		if ($filter) {
+			return elgg_trigger_plugin_hook('timezones', 'events_api', null, $defaults);
+		}
+
+		return $defaults;
+	}
+
+	/**
+	 * Checks if $timezone id is valid
+	 *
+	 * @param string $timezone
+	 * @return bool
+	 */
+	public static function isValidTimezone($timezone) {
+		return in_array($timezone, DateTimeZone::listIdentifiers());
+	}
+
+	/**
+	 * Returns a label for a timezone
+	 * 
+	 * @param string $tz_id  PHP timezone id
+	 * @param format $format Format
+	 * @param mixed  $ts     Optional timestamp
+	 * @return string
+	 */
+	public static function getTimezoneLabel($tz_id, $format = false, $ts = 'now') {
+		if (self::isValidTimezone($tz_id) && $format) {
+			$dt = new DateTime(null, new DateTimeZone($tz_id));
+			(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
+			return $dt->format($format);
+		}
+
+		return elgg_echo($tz_id);
+	}
+
+	/**
+	 * Sorting callback function for comparing timezones by offset
+	 * @return int
+	 */
+	public static function compareTimezonesByOffset($a, $b) {
+
+		$dta = new DateTime(null, new DateTimeZone($a));
+		$dtb = new DateTime(null, new DateTimeZone($b));
+
+		if ($dta->getOffset() == $dtb->getOffset()) {
+			return (strcmp($a, $b) < 0) ? -1 : 1;
+		}
+		return ($dta->getOffset() < $dtb->getOffset()) ? -1 : 1;
+	}
+
+	/**
+	 * Returns display timezone
+	 *
+	 * Returns first set value from the following:
+	 * 1. Request query element
+	 * 2. Timezone set by the user in their settings
+	 * 3. Timezone set as site default
+	 * 4. PHP timezone
+	 *
+	 * @param ElggUser $user User
+	 * @return string
+	 */
+	public static function getClientTimezone() {
+
+		if (isset(self::$timezone)) {
+			return self::$timezone;
+		}
+
+		$preferred = array();
+
+		$preferred[] = get_input('timezone');
+
+		$user = elgg_get_logged_in_user_entity();
+		if ($user) {
+			$preferred[] = $user->timezone;
+		}
+
+		if (defined('ELGG_SITE_TIMEZONE')) {
+			$preferred[] = ELGG_SITE_TIMEZONE;
+		}
+
+		$preferred[] = date('e');
+
+		foreach ($preferred as $id) {
+			if (self::isValidTimezone($id)) {
+				self::$timezone = $id;
+				return $id;
+			}
+		}
+
+		return Util::UTC;
+	}
+
+	/**
+	 * Returns a representation of $ts in ISO8601 format using $tz_id as a base timezone
+	 * 
+	 * @param mixed  $ts              Date/time value
+	 * @param string $timezone        Base timezone of the date/time value
+	 * @param string $target_timezone Target timezone of the formatted value
+	 * @return string
+	 */
+	public static function toISO8601($ts = 'now', $timezone = Util::UTC, $target_timezone = Util::UTC) {
+		$dt = new DateTime(null, new DateTimeZone($timezone));
+		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
+		$dt->setTimezone(new DateTimeZone($target_timezone));
+		return $dt->format('c');
 	}
 
 }

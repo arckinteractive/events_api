@@ -12,6 +12,7 @@ use ElggBatch;
  * @property integer $end_date
  * @property integer $start_time
  * @property integer $end_time
+ * @property string  $timezone
  * @property integer $start_timestamp
  * @property integer $end_timestamp
  * @property integer $end_delta
@@ -64,8 +65,7 @@ class Event extends ElggObject {
 			'calendar' => $calendar_guid,
 		)));
 	}
-	
-	
+
 	/**
 	 * Get all calendars this event is on
 	 * 
@@ -80,21 +80,21 @@ class Event extends ElggObject {
 			'relationship_guid' => $this->guid,
 			'limit' => false
 		);
-		
+
 		$options = array_merge($defaults, $params);
-		
+
 		if ($public) {
 			$options['metadata_name_value_pairs'][] = array(
 				'name' => '__public_calendar',
 				'value' => true
 			);
 		}
-		
+
 		if ($options['count']) {
 			return elgg_get_entities_from_relationship($options);
 		}
-		
-		return new ElggBatch('elgg_get_entities_from_relationship', $options);				
+
+		return new ElggBatch('elgg_get_entities_from_relationship', $options);
 	}
 
 	/**
@@ -128,7 +128,7 @@ class Event extends ElggObject {
 		$this->end_timestamp = $params['new_end_timestamp'];
 		$this->end_date = $params['new_end_date'];
 		$this->end_time = $params['new_end_time'];
-		$this->end_delta = $params['new_end_timestamp'] - $this->start_timestamp; // how long this is in seconds
+		$this->end_delta = $params['new_end_timestamp'] - $this->getStartTimestamp(); // how long this is in seconds
 
 		return true;
 	}
@@ -173,6 +173,30 @@ class Event extends ElggObject {
 	}
 
 	/**
+	 * Returns integer value of start_timestamp metastring
+	 * @return int
+	 */
+	public function getStartTimestamp() {
+		return (int) $this->start_timestamp;
+	}
+
+	/**
+	 * Returns integer value of end_timestamp metastring
+	 * @return int
+	 */
+	public function getEndTimestamp() {
+		return (int) $this->end_timestamp;
+	}
+
+	/**
+	 * Returns event timezone
+	 * @return string
+	 */
+	public function getTimezone() {
+		return (Util::isValidTimezone($this->timezone)) ? $this->timezone : Util::UTC;
+	}
+
+	/**
 	 * Calculates parameters for a move action
 	 * 
 	 * @param int  $day_delta    Positive or negative number of days from the original event day
@@ -182,8 +206,8 @@ class Event extends ElggObject {
 	 */
 	public function getMoveParams($day_delta, $minute_delta, $all_day) {
 		// calculate new dates
-		$start_timestamp = $this->start_timestamp;
-		$end_timestamp = $this->end_timestamp;
+		$start_timestamp = $this->getStartTimestamp();
+		$end_timestamp = $this->getEndTimestamp();
 
 		$time_diff = $end_timestamp - $start_timestamp;
 		$new_start_timestamp = $start_timestamp + ($day_delta * Util::SECONDS_IN_AN_HOUR * $day_delta) + ($minute_delta * Util::SECONDS_IN_A_MINUTE);
@@ -212,7 +236,7 @@ class Event extends ElggObject {
 	 */
 	public function getResizeParams($day_delta = 0, $minute_delta = 0) {
 		// calculate new dates
-		$end_timestamp = $this->end_timestamp;
+		$end_timestamp = $this->getEndTimestamp();
 
 		$new_end_timestamp = $end_timestamp + ($day_delta * Util::SECONDS_IN_A_DAY) + ($minute_delta * Util::SECONDS_IN_A_MINUTE);
 
@@ -229,29 +253,27 @@ class Event extends ElggObject {
 	/**
 	 * Returns an array of start times for an event within a given timestamp range
 	 * Note - assumes timestamp range is in increments of days
-	 * 
+	 *
+	 * @param int $startime Range start UNIX timestamp
+	 * @param int $endtime  Range end UNIX timestamp
 	 * @return array
 	 */
-	public function getStartTimes($starttime, $endtime) {
+	public function getStartTimes($starttime = 0, $endtime = 0) {
 
 		if (!$this->isRecurring()) {
-			return array($this->start_timestamp);
+			return array($this->getStartTimestamp());
 		}
 
 		$start_times = array();
 
-		// 00:00:00 on the day of first event occurrence
-		$start_day = (int) Util::getDayStart($this->start_timestamp);
-
-		$test_day = $starttime;
+		$test_day = ($this->getStartTimestamp() > $starttime) ? $this->getStartTimestamp() : $starttime;
 
 		// iterate through each day of our range and see if this event shows up on any of those days
 		while ($test_day < $endtime) {
 
 			$shows = false;
 
-			// normalize timestamp to beginning of day
-			$test_day = (int) Util::getDayStart($test_day);
+			$offset_on_test_day = Util::getOffset($test_day, Util::UTC, $this->getTimezone());
 
 			// next increment
 			$next_test_day = $test_day + Util::SECONDS_IN_A_DAY;
@@ -261,53 +283,63 @@ class Event extends ElggObject {
 				break;
 			}
 
-			// event repetitions will start in the future from this day
-			if ($start_day > $test_day) {
-				$test_day = $next_test_day;
-				continue;
-			}
-
 			switch ($this->repeat_frequency) {
 				case Util::FREQUENCY_DAILY:
 					$shows = true;
 					break;
 
 				case Util::FREQUENCY_WEEKDAY:
+					$repeat_weekly_days = array(Util::SATURDAY, Util::SUNDAY);
+					foreach ($repeat_weekly_days as $key => $day) {
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
+					}
 					$D = Util::getDayOfWeek($test_day);
-					$shows = !in_array($D, array(Util::SATURDAY, Util::SUNDAY));
+					$shows = !in_array($D, $repeat_weekly_days);
 					break;
 
 				case Util::FREQUENCY_WEEKDAY_ODD:
-					$D = Util::getDayOfWeek($test_day);
-					$shows = in_array($D, array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY));
-					break;
-
-				case Util::FREQUENCY_WEEKDAY_EVEN:
-					$D = Util::getDayOfWeek($test_day);
-					$shows = in_array($D, array(Util::TUESDAY, Util::THURSDAY));
-					break;
-
-				case Util::FREQUENCY_WEEKLY:
-					$repeat_weekly_days = $this->repeat_weekly_days;
-					if (!$repeat_weekly_days) {
-						$repeat_weekly_days = Util::getDayOfWeek($this->start_timestamp);
-					}
-					if (!is_array($repeat_weekly_days)) {
-						$repeat_weekly_days = array($repeat_weekly_days);
+					$repeat_weekly_days = array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY);
+					foreach ($repeat_weekly_days as $key => $day) {
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
 					}
 					$D = Util::getDayOfWeek($test_day);
 					$shows = in_array($D, $repeat_weekly_days);
 					break;
 
+				case Util::FREQUENCY_WEEKDAY_EVEN:
+					$repeat_weekly_days = array(Util::TUESDAY, Util::THURSDAY);
+					foreach ($repeat_weekly_days as $key => $day) {
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
+					}
+					$D = Util::getDayOfWeek($test_day);
+					$shows = in_array($D, $repeat_weekly_days);
+					break;
+
+				case Util::FREQUENCY_WEEKLY:
+					$repeat_weekly_days = $this->repeat_weekly_days;
+					if (!$repeat_weekly_days) {
+						$repeat_weekly_days = Util::getDayOfWeek($this->getStartTimestamp());
+					}
+					if (!is_array($repeat_weekly_days)) {
+						$repeat_weekly_days = array($repeat_weekly_days);
+					}
+					$D = Util::getDayOfWeek($test_day);
+					foreach ($repeat_weekly_days as $key => $day) {
+						// Monday in Sydney can still be Sunday at UTC
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
+					}
+					$shows = in_array($D, $repeat_weekly_days);
+					break;
+
 				case Util::FREQUENCY_MONTHLY:
 					if ($this->repeat_monthly_by == Util::REPEAT_MONTHLY_BY_DAY_OF_WEEK) {
-						$shows = Util::isOnSameWeekDayOfMonth($test_day, $this->start_timestamp);
+						$shows = Util::isOnSameWeekDayOfMonth($test_day, $this->getStartTimestamp());
 						if ($shows) {
 							// we can skip 4 weeks
 							$next_test_day = strtotime('+28 days', $test_day);
 						}
 					} else {
-						$shows = Util::isOnSameDayOfMonth($test_day, $this->start_timestamp);
+						$shows = Util::isOnSameDayOfMonth($test_day, $this->getStartTimestamp());
 						if ($shows) {
 							// we can skip a month
 							$next_test_day = strtotime('+1 month', $test_day);
@@ -316,7 +348,7 @@ class Event extends ElggObject {
 					break;
 
 				case Util::FREQUENCY_YEARLY:
-					$shows = Util::isOnSameDayOfYear($test_day, $this->start_timestamp);
+					$shows = Util::isOnSameDayOfYear($test_day, $this->getStartTimestamp());
 					if ($shows) {
 						// we can skip a year
 						$next_test_day = strtotime('+1 year', $test_day);
@@ -325,8 +357,11 @@ class Event extends ElggObject {
 			}
 
 			if ($shows) {
-				$occurrence = (int) Util::getTimeOfDay($this->start_timestamp, $test_day);
-				array_push($start_times, $occurrence);
+				$occurrence = (int) Util::getTimeOfDay($this->getStartTimestamp(), $test_day);
+				if ($occurrence >= $starttime && $occurrence <= $endtime) {
+					// events may show on a start or end day, but not fall in the time range
+					array_push($start_times, $occurrence);
+				}
 			}
 
 			$test_day = $next_test_day;
@@ -369,7 +404,7 @@ class Event extends ElggObject {
 				if ($this->repeat) {
 					return 0;
 				}
-				return $this->start_timestamp;
+				return $this->getStartTimestamp();
 		}
 	}
 
@@ -385,71 +420,81 @@ class Event extends ElggObject {
 
 		$occurrences = (int) $occurrences;
 
-		$start_timestamp = $this->start_timestamp;
-		$start_day = (int) Util::getDayStart($start_timestamp);
-		$test_day = ($from_timestamp) ? $from_timestamp : $start_timestamp;
+		$start_timestamp = $this->getStartTimestamp();
+
+		$start_day = $start_timestamp;
+		$test_day = ($start_timestamp > $from_timestamp) ? $start_timestamp : $from_timestamp;
 
 		while ($occurrences > 0) {
 
 			$shows = false;
-
-			// normalize timestamp to beginning of day
-			$test_day = (int) Util::getDayStart($test_day);
+			$offset_on_test_day = Util::getOffset($test_day, Util::UTC, $this->getTimezone());
 
 			// next increment
 			$next_test_day = $test_day + Util::SECONDS_IN_A_DAY;
-
-			// event repetitions will start in the future from this day
-			if ($start_day > $test_day) {
-				$test_day = $next_test_day;
-				continue;
-			}
 
 			switch ($this->repeat_frequency) {
 				default:
 					$occurrences = 0;
 					break;
-					
+
 				case Util::FREQUENCY_DAILY:
 					$shows = true;
 					break;
 
 				case Util::FREQUENCY_WEEKDAY:
+					$repeat_weekly_days = array(Util::SATURDAY, Util::SUNDAY);
+					foreach ($repeat_weekly_days as $key => $day) {
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
+					}
 					$D = Util::getDayOfWeek($test_day);
-					$shows = !in_array($D, array(Util::SATURDAY, Util::SUNDAY));
+					$shows = !in_array($D, $repeat_weekly_days);
 					break;
 
 				case Util::FREQUENCY_WEEKDAY_ODD:
-					$D = Util::getDayOfWeek($test_day);
-					$shows = in_array($D, array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY));
-					break;
-
-				case Util::FREQUENCY_WEEKDAY_EVEN:
-					$D = Util::getDayOfWeek($test_day);
-					$shows = in_array($D, array(Util::TUESDAY, Util::THURSDAY));
-					break;
-
-				case Util::FREQUENCY_WEEKLY:
-					$repeat_weekly_days = $this->repeat_weekly_days;
-					if (!$repeat_weekly_days) {
-						$repeat_weekly_days = Util::getDayOfWeek($this->start_timestamp);
-					}
-					if (!is_array($repeat_weekly_days)) {
-						$repeat_weekly_days = array($repeat_weekly_days);
+					$repeat_weekly_days = array(Util::MONDAY, Util::WEDNESDAY, Util::FRIDAY);
+					foreach ($repeat_weekly_days as $key => $day) {
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
 					}
 					$D = Util::getDayOfWeek($test_day);
 					$shows = in_array($D, $repeat_weekly_days);
 					break;
 
+				case Util::FREQUENCY_WEEKDAY_EVEN:
+					$repeat_weekly_days = array(Util::TUESDAY, Util::THURSDAY);
+					foreach ($repeat_weekly_days as $key => $day) {
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
+					}
+					$D = Util::getDayOfWeek($test_day);
+					$shows = in_array($D, $repeat_weekly_days);
+					break;
+
+				case Util::FREQUENCY_WEEKLY:
+					$repeat_weekly_days = $this->repeat_weekly_days;
+					if (!$repeat_weekly_days) {
+						$repeat_weekly_days = Util::getDayOfWeek($this->getStartTimestamp());
+					}
+					if (!is_array($repeat_weekly_days)) {
+						$repeat_weekly_days = array($repeat_weekly_days);
+					}
+					$D = Util::getDayOfWeek($test_day);
+					foreach ($repeat_weekly_days as $key => $day) {
+						// use offsets
+						// Monday in Sydney can still be Sunday at UTC
+						$repeat_weekly_days[$key] = Util::getDayOfWeek(strtotime($day, $test_day) - $offset_on_test_day);
+					}
+					$shows = in_array($D, $repeat_weekly_days);
+					break;
+
 				case Util::FREQUENCY_MONTHLY:
 					if ($this->repeat_monthly_by == Util::REPEAT_MONTHLY_BY_DAY_OF_WEEK) {
-						$shows = Util::isOnSameWeekDayOfMonth($test_day, $this->start_timestamp);
+						$shows = Util::isOnSameWeekDayOfMonth($test_day, $this->getStartTimestamp());
 						if ($shows) {
 							// we can skip 4 weeks
 							$next_test_day = strtotime('+28 days', $test_day);
 						}
 					} else {
-						$shows = Util::isOnSameDayOfMonth($test_day, $this->start_timestamp);
+						$shows = Util::isOnSameDayOfMonth($test_day, $this->getStartTimestamp());
 						if ($shows) {
 							// we can skip a month
 							$next_test_day = strtotime('+1 month', $test_day);
@@ -458,7 +503,7 @@ class Event extends ElggObject {
 					break;
 
 				case Util::FREQUENCY_YEARLY:
-					$shows = Util::isOnSameDayOfYear($test_day, $this->start_timestamp);
+					$shows = Util::isOnSameDayOfYear($test_day, $this->getStartTimestamp());
 					if ($shows) {
 						// we can skip a year
 						$next_test_day = strtotime('+1 year', $test_day);
@@ -468,7 +513,7 @@ class Event extends ElggObject {
 
 			if ($shows) {
 				$occurrences--;
-				$start_timestamp = (int) Util::getTimeOfDay($this->start_timestamp, $test_day);
+				$start_timestamp = (int) Util::getTimeOfDay($this->getStartTimestamp(), $test_day);
 			}
 
 			$test_day = $next_test_day;
@@ -488,12 +533,12 @@ class Event extends ElggObject {
 		if (!$after_timestamp) {
 			$after_timestamp = time();
 		}
-	
+
 		$next = false;
 		if ($this->isRecurring()) {
 			$next = $this->calculateEndAfterTimestamp(1, $after_timestamp, false);
-		} else if ($after_timestamp < $this->start_timestamp) {
-			$next = $this->start_timestamp;
+		} else if ($after_timestamp < $this->getStartTimestamp()) {
+			$next = $this->getStartTimestamp();
 		}
 
 		if ($this->repeat_end_timestamp && $this->repeat_end_timestamp < $next) {
@@ -513,11 +558,12 @@ class Event extends ElggObject {
 		return $start_timestamp == $this->getNextOccurrence($start_timestamp - 1);
 	}
 
-	/** 
+	/**
 	 * Checks if the event has reminders
 	 * @return bool
 	 */
 	public function hasReminders() {
 		return (!empty($this->reminder));
 	}
+
 }

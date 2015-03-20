@@ -33,7 +33,7 @@ function init() {
 	elgg_register_action('events/cancel', __DIR__ . '/actions/events/cancel.php');
 
 	register_pam_handler(__NAMESPACE__ . '\\pam_handler', PAM::IMPORTANCE, PAM::POLICY);
-	
+
 }
 
 

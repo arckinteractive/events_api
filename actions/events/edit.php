@@ -2,6 +2,9 @@
 
 namespace Events\API;
 
+use DateTime;
+use DateTimeZone;
+
 elgg_make_sticky_form('events/edit');
 
 $user = elgg_get_logged_in_user_entity();
@@ -46,6 +49,8 @@ $location = get_input('location');
 $description = get_input('description');
 $start_date = get_input('start_date');
 $end_date = get_input('end_date', $start_date);
+$timezone = get_input('timezone', Util::UTC);
+
 $all_day = get_input('all_day');
 if ($all_day) {
 	// normalize so our queries produce valid results
@@ -63,8 +68,13 @@ $repeat_frequency = get_input('repeat_frequency');
 $repeat_end_type = get_input('repeat_end_type');
 
 // sanity check - events must have a start date, and an end date, and they must end after they start
-$start_timestamp = strtotime($start_date . ' ' . $start_time);
-$end_timestamp = strtotime($end_date . ' ' . $end_time);
+$dt = new DateTime(null, new DateTimeZone($timezone));
+
+$start_timestamp = $dt->modify("$start_date $start_time")->getTimestamp();
+$start_timestamp_iso = $dt->format('c');
+
+$end_timestamp = $dt->modify("$end_date $end_time")->getTimestamp();
+$end_timestamp_iso = $dt->format('c');
 
 if ($start_timestamp === false || $end_timestamp === false) {
 	// something was the wrong format
@@ -86,8 +96,14 @@ $event->start_date = $start_date;
 $event->end_date = $end_date;
 $event->start_time = $start_time;
 $event->end_time = $end_time;
+$event->timezone = $timezone;
+
 $event->start_timestamp = $start_timestamp;
 $event->end_timestamp = $end_timestamp;
+
+$event->start_timestamp_iso = $start_timestamp_iso;
+$event->end_timestamp_iso = $end_timestamp_iso;
+
 $event->end_delta = $end_timestamp - $start_timestamp; // how long the event is in seconds
 $event->all_day = $all_day ? 1 : 0;
 
@@ -105,7 +121,7 @@ switch ($event->repeat_frequency) {
 
 	case Util::FREQUENCY_WEEKLY :
 		$repeat_weekly_days = get_input('repeat_weekly_days');
-		$repeat_weekly_days = (is_array($repeat_weekly_days)) ? $repeat_weekly_days : date('D', $event->start_timestamp);
+		$repeat_weekly_days = (is_array($repeat_weekly_days)) ? $repeat_weekly_days : date('D', $event->getStartTimestamp());
 		$event->repeat_weekly_days = $repeat_weekly_days;
 		break;
 
@@ -118,8 +134,8 @@ switch ($event->repeat_frequency) {
 $event->repeat_end_timestamp = $event->calculateRepeatEndTimestamp();
 
 // recurring events can not finish recurring before event ends
-if ($event->repeat_end_timestamp && $event->repeat_end_timestamp < $event->end_timestamp) {
-	$event->repeat_end_timestamp = $event->end_timestamp;
+if ($event->repeat_end_timestamp && $event->repeat_end_timestamp < $event->getEndTimestamp()) {
+	$event->repeat_end_timestamp = $event->getEndTimestamp();
 }
 
 if (!$event->save()) {

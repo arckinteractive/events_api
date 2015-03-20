@@ -56,7 +56,7 @@ class Calendar extends ElggObject {
 
 	/**
 	 * Returns all event objects
-	 *
+	 * 
 	 * @param int $starttime Time range start, default: now
 	 * @param int $endtime   Time range end, default: 1 year from start time
 	 * @return ElggBatch
@@ -124,26 +124,28 @@ class Calendar extends ElggObject {
 	 * @return array
 	 */
 	public function getAllEventInstances($starttime = null, $endtime = null) {
-
 		$instances = array();
 		$events = $this->getAllEvents($starttime, $endtime);
+		
 		foreach ($events as $event) {
-			/* @var Event $event */
+			/* @var $event Event */
 			$start_times = $event->getStartTimes($starttime, $endtime);
 			foreach ($start_times as $start_time) {
 				$instances[] = array(
+					'cid' => "$this->guid::$event->guid",
 					'id' => $event->guid,
-					'start' => date('c', $start_time),
+					'start' => Util::toISO8601($start_time, Util::UTC, $event->getTimezone()),
 					'start_timestamp' => $start_time,
-					'end' => date('c', $start_time + $event->end_delta),
+					'end' => Util::toISO8601($start_time + $event->end_delta, Util::UTC, $event->getTimezone()),
 					'end_timestamp' => $start_time + $event->end_delta,
 					'title' => $event->getDisplayName(),
 					'description' => $event->description,
-					'host' => $event->getOwnerEntity()->email,
+					'host' => $event->getContainerEntity()->name,
 					'url' => $event->getURL($start_time, $this->guid),
 					'allDay' => $event->all_day,
 					'time_created' => $event->time_created,
 					'location' => $event->getLocation(),
+					'timezone' =>  $event->getTimezone(),
 				);
 			}
 		}
@@ -152,7 +154,7 @@ class Calendar extends ElggObject {
 			if ($a['start'] == $b['start']) {
 				return ($a['id'] < $b['id']) ? -1 : 1;
 			}
-			return ($a['start'] < $b['start']) ? -1 : 1;
+			return ($a['start_timestamp'] < $b['start_timestamp']) ? -1 : 1;
 		});
 
 		return $instances;

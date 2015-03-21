@@ -201,7 +201,7 @@ class Event extends ElggObject {
 	 * @return \ElggEntity
 	 */
 	public function getHost() {
-		$container = $this->getContainerEntity();
+		$container = $this->getOwnerEntity();
 		return ($container) ? : elgg_get_site_entity();
 	}
 

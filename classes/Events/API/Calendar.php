@@ -115,49 +115,60 @@ class Calendar extends ElggObject {
 	 *    'description' => $description,
 	 *    'url' => $url,
 	 *    'allDay' => $all_day,
+	 *    ...
 	 *   ),
 	 *  );
 	 * </code>
 	 *
-	 * @param int $starttime Range start timestamp
-	 * @param int $endtime   Range end timestamp
-	 * @return array
+	 * @param int    $starttime Range start timestamp
+	 * @param int    $endtime   Range end timestamp
+	 * @param bool   $export    Export EventInstance objects to array
+	 * @param string $consumer  Consumer name (passed to the export hook, so plugins can decide on exportable values)
+	 * @return EventsInstance[]|array
 	 */
-	public function getAllEventInstances($starttime = null, $endtime = null) {
+	public function getAllEventInstances($starttime = null, $endtime = null, $export = true, $consumer = '') {
 		$instances = array();
+
 		$events = $this->getAllEvents($starttime, $endtime);
-		
 		foreach ($events as $event) {
 			/* @var $event Event */
+			if (!$event instanceof Event) {
+				continue;
+			}
 			$start_times = $event->getStartTimes($starttime, $endtime);
 			foreach ($start_times as $start_time) {
-				$instances[] = array(
-					'cid' => "$this->guid::$event->guid",
-					'id' => $event->guid,
-					'start' => Util::toISO8601($start_time, Util::UTC, $event->getTimezone()),
-					'start_timestamp' => $start_time,
-					'end' => Util::toISO8601($start_time + $event->end_delta, Util::UTC, $event->getTimezone()),
-					'end_timestamp' => $start_time + $event->end_delta,
-					'title' => $event->getDisplayName(),
-					'description' => $event->description,
-					'host' => $event->getContainerEntity()->name,
-					'url' => $event->getURL($start_time, $this->guid),
-					'allDay' => $event->all_day,
-					'time_created' => $event->time_created,
-					'location' => $event->getLocation(),
-					'timezone' =>  $event->getTimezone(),
-				);
+				$instance = new EventInstance($event, $start_time);
+				$instance->setCalendar($this);
+				$instances[] = $instance;
 			}
 		}
 
-		usort($instances, function($a, $b) {
-			if ($a['start'] == $b['start']) {
-				return ($a['id'] < $b['id']) ? -1 : 1;
+		usort($instances, array($this, 'compareInstancesByStartTime'));
+
+		if ($export) {
+			foreach ($instances as $key => $instance) {
+				$instances[$key] = $instance->export($consumer);
 			}
-			return ($a['start_timestamp'] < $b['start_timestamp']) ? -1 : 1;
-		});
+		}
 
 		return $instances;
+	}
+
+	/**
+	 * Compares two event instances by start time
+	 * 
+	 * @param EventInstance $a Instance
+	 * @param EventInstance $b Instance
+	 * @return int
+	 */
+	public static function compareInstancesByStartTime($a, $b) {
+		$start_a = $a->getStartTimestamp();
+		$start_b = $a->getStartTimestamp();
+
+		if ($start_a == $start_b) {
+			return 0;
+		}
+		return ($start_a < $start_b) ? -1 : 1;
 	}
 
 	/**
@@ -366,7 +377,7 @@ class Calendar extends ElggObject {
 			$endtime = strtotime('+1 year', $starttime);
 		}
 
-		$instances = $this->getAllEventInstances($starttime, $endtime);
+		$instances = $this->getAllEventInstances($starttime, $endtime, true, 'ical');
 
 		$config = array(
 			'unique_id' => $this->guid,
@@ -382,29 +393,25 @@ class Calendar extends ElggObject {
 		$v->setProperty('method', 'PUBLISH');
 		$v->setProperty("x-wr-calname", $this->getDisplayName());
 		$v->setProperty("X-WR-CALDESC", strip_tags($this->description));
-		$v->setProperty("X-WR-TIMEZONE", date_default_timezone_get());
+		$v->setProperty("X-WR-TIMEZONE", Util::UTC);
 		foreach ($instances as $instance) {
-			$vevent = & $v->newComponent('vevent');
 
-			$st = getdate((int) $instance['start_timestamp']);
-			if ($instance['allDay']) {
-				$vevent->setProperty('dtstart', date("Ymd", $instance['start_timestamp']), array('VALUE' => 'DATE'));
-				$vevent->setProperty('dtend', date("Ymd", $instance['end_timestamp']), array('VALUE' => 'DATE'));
-			} else {
-				$vevent->setProperty('dtstart', date("Ymd\THis\Z", $instance['start_timestamp']));
-				$vevent->setProperty('dtend', date("Ymd\THis\Z", $instance['end_timestamp']));
+			$e = & $v->newComponent('vevent');
+
+			$reminders = elgg_extract('reminders', $instance, array());
+			unset($instance['reminders']);
+
+			foreach ($instance as $property => $value) {
+				$e->setProperty($property, $value);
 			}
-			$vevent->setProperty('class', 'PUBLIC');
-			$vevent->setProperty('organizer', $instance['host']);
-			$vevent->setProperty('uid', $instance['id'] . '-' . $instance['start_timestamp']);
-			$vevent->setProperty('url', $instance['url']);
-			$vevent->setProperty('location', $instance['location']);
-			$vevent->setProperty('summary', strip_tags($instance['title']));
-			$vevent->setProperty('description', strip_tags($instance['description']));
 
-			/**
-			 * @todo: add reminders
-			 */
+			if (!empty($reminders)) {
+				foreach ($reminders as $reminder) {
+					$a = & $e->newComponent('valarm');
+					$a->setProperty('action', 'DISPLAY');
+					$a->setProperty('trigger', "-PT{$reminder}S");
+				}
+			}
 		}
 
 		$v->returnCalendar();

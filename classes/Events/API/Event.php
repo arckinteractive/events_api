@@ -197,6 +197,23 @@ class Event extends ElggObject {
 	}
 
 	/**
+	 * Returns host
+	 * @return \ElggEntity
+	 */
+	public function getHost() {
+		$container = $this->getContainerEntity();
+		return ($container) ? : elgg_get_site_entity();
+	}
+
+	/**
+	 * Checks if it's an all day event
+	 * @return bool
+	 */
+	public function isAllDay() {
+		return (bool) $this->all_day;
+	}
+
+	/**
 	 * Calculates parameters for a move action
 	 * 
 	 * @param int  $day_delta    Positive or negative number of days from the original event day

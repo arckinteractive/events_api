@@ -391,7 +391,7 @@ class Calendar extends ElggObject {
 
 		$v = new vcalendar($config);
 		$v->setProperty('method', 'PUBLISH');
-		$v->setProperty("X-WR-CALNAME", implode(' - ', array(elgg_echo_config('sitename'), $this->getDisplayName())));
+		$v->setProperty("X-WR-CALNAME", implode(' - ', array(elgg_get_config('sitename'), $this->getDisplayName())));
 		$v->setProperty("X-WR-CALDESC", strip_tags($this->description));
 		$v->setProperty("X-WR-TIMEZONE", Util::UTC);
 		foreach ($instances as $instance) {

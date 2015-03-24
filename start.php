@@ -22,6 +22,7 @@ function init() {
 	elgg_register_plugin_hook_handler('container_permissions_check', 'object', __NAMESPACE__ . '\\calendar_permissions');
 
 	elgg_register_plugin_hook_handler('export:instance', 'events_api', __NAMESPACE__ . '\\export_ical_instance');
+	elgg_register_plugin_hook_handler('cron', 'daily', __NAMESPACE__ . '\\daily_build_reminders');
 
 	elgg_register_event_handler('delete', 'object', __NAMESPACE__ . '\\delete_event_handler');
 

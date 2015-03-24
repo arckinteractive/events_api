@@ -171,6 +171,11 @@ if ($has_reminders && !empty($reminders)) {
 		}
 		create_metadata($event->guid, 'reminder', $reminder_value, '', $event->owner_guid, $event->access_id, true);
 	}
+	
+	// rebuild reminders for the next 2 days
+	$time = time();
+	$event->removeReminders(null, null, true); // remove all reminders
+	$event->buildReminders($time, $time + (Util::SECONDS_IN_A_DAY * 2));
 }
 
 if (!$editing) {

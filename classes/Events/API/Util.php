@@ -5,6 +5,7 @@ namespace Events\API;
 use DateTime;
 use DateTimeZone;
 use ElggUser;
+use ElggBatch;
 
 class Util {
 
@@ -151,6 +152,56 @@ class Util {
 		$time += $dt->format('s');
 
 		return date($format, $time);
+	}
+	
+	public static function getLongestReminder() {
+		$md = elgg_get_metadata(array(
+			'type' => 'object',
+			'subtype' => 'event',
+			'selects' => array("CAST(v.string AS SIGNED) as reminder"),
+			'metadata_name' => 'reminder',
+			'order_by' => 'reminder desc',
+			'limit' => 1
+		));
+		
+		return (int) $md[0]->value;
+	}
+	
+	
+	/**
+	 * analog of Calendar::getAllEvents but doesn't limit to a specific calendar
+	 * 
+	 * @param type $starttime
+	 * @param type $endtime
+	 */
+	public static function getAllEvents($starttime, $endtime) {
+		$starttime = sanitize_int($starttime);
+		$endtime = sanitize_int($endtime);
+
+		$dbprefix = elgg_get_config('dbprefix');
+
+		$mds_name = add_metastring('start_timestamp');
+		$mdre_name = add_metastring('repeat_end_timestamp');
+
+		$options = array(
+			'type' => 'object',
+			'subtype' => Event::SUBTYPE,
+			'joins' => array(
+				"JOIN {$dbprefix}metadata mds ON mds.entity_guid = e.guid", // start time metadata
+				"JOIN {$dbprefix}metastrings mss ON mss.id = mds.value_id", // start time metastring
+				"JOIN {$dbprefix}metadata mdre ON mdre.entity_guid = e.guid", // repeat end time metadata
+				"JOIN {$dbprefix}metastrings msre ON msre.id = mdre.value_id" // repeat end time metastring
+			),
+			'wheres' => array(
+				"mds.name_id = {$mds_name}",
+				"mdre.name_id = {$mdre_name}",
+				// event start is before our endtime AND (repeat end is after starttime, or there is no repeat end)
+				"((CAST(mss.string AS SIGNED) < {$endtime}) AND (CAST(msre.string AS SIGNED) > {$starttime} OR CAST(msre.string AS SIGNED) = 0))"
+			),
+			'limit' => false
+		);
+				
+		return new ElggBatch('elgg_get_entities', $options);
 	}
 
 	/**

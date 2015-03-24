@@ -113,6 +113,11 @@ class Event extends ElggObject {
 		$this->start_time = $params['new_start_time'];
 		$this->end_time = $params['new_end_time'];
 		$this->end_delta = $params['new_end_timestamp'] - $params['new_start_timestamp']; // how long this is in seconds
+		
+		// rebuild reminders for the next 2 days
+		$time = time();
+		$this->removeReminders(null, null, true); // remove all reminders
+		$this->buildReminders($time, $time + (Util::SECONDS_IN_A_DAY * 2));
 
 		return true;
 	}
@@ -583,4 +588,68 @@ class Event extends ElggObject {
 		return (!empty($this->reminder));
 	}
 
+	/**
+	 * Creates reminder annotations for this event
+	 * 
+	 * @param type $starttime
+	 * @param type $endtime
+	 * @return boolean
+	 */
+	public function buildReminders($starttime, $endtime) {
+		if (!$this->hasReminders()) {
+			return true;
+		}
+		
+		$starttime = sanitize_int($starttime);
+		$endtime = sanitize_int($endtime);
+		
+		// first delete any existing reminders for this time period
+		$this->removeReminders($starttime, $endtime);
+		
+		$reminders = elgg_get_metadata(array(
+			'guid' => $this->guid,
+			'metadata_name' => 'reminder',
+			'limit' => false
+		));
+				
+		// create reminders in this time period
+		$starttimes = $this->getStartTimes($starttime, $endtime);
+		foreach ($starttimes as $s) {
+			foreach ($reminders as $r) {
+				$reminder = $s - $r->value;
+				if ($reminder < time()) {
+					continue; // already passed
+				}
+				
+				$this->annotate('reminder', $s - $r->value, ACCESS_PUBLIC);
+			}
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * delete reminder annotations for a time period
+	 * use the $all override to delete all reminder annotations period
+	 * 
+	 * @param type $starttime
+	 * @param type $endtime
+	 * @param type $all
+	 */
+	public function removeReminders($starttime, $endtime, $all = false) {
+		$starttime = sanitize_int($starttime);
+		$endtime = sanitize_int($endtime);
+		
+		$options = array(
+			'guid' => $this->guid,
+			'annotation_names' => array('reminder'),
+			'limit' => false
+		);
+		
+		if (!$all) {
+			$options['wheres'] = "CAST(v.string as SIGNED) BETWEEN {$starttime} AND {$endtime}";
+		}
+		
+		return elgg_delete_annotations($options);
+	}
 }

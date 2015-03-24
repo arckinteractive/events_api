@@ -21,3 +21,5 @@ $upgrade_version = elgg_get_plugin_setting('upgrade_version', $plugin_id);
 if (!$upgrade_version) {
 	elgg_set_plugin_setting('upgrade_version', 20141215, $plugin_id);
 }
+
+daily_build_reminders(null, null, null, null);

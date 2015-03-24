@@ -39,8 +39,27 @@ Required inputs are:
 Optional inputs are:
 - ```guid```		INT
 - ```title```		STR (will default to ```elgg_echo('events:edit:title:placeholder')```)
-- ```description``` STR
+- ```description```     STR
+- ```has_reminders```   BOOL does the event have reminders enabled?
+- ```reminders```       ARR an associative array describing the reminders in terms of increment and value
 
+eg.
+
+    $reminders = array(
+        'value' => array(
+            15,
+            1,
+            ''
+        ),
+        'increment' => array(
+            'minute',
+            'hour',
+            ''
+        )
+    )
+
+describes reminders of 15 minutes, and 1 hour prior the meeting.  The last item of each
+array is ignored as a template value.
 
 
 ### ```action('events/move')```
@@ -72,6 +91,17 @@ After validation an event is triggered: ```'events_api', 'event:resize'```before
 Returning false will stop the resize. Handlers returning false are expected to provide their own error message.
 
 Note this is a convenience action, see ```\Events\API\Event::resize()``` for an equivalent method
+
+
+## Reminders
+
+Reminders are stored as metadata on the event as a delta of number of seconds prior to the event
+in which to notify the user.
+On daily cron and plugin activation a script determines upcoming reminders and stores them as annotations
+on the event.
+The sending of reminders is left to the UI, the expected method is to register for minute cron, look
+for annotations coming up in the next minute - and send a reminder for any events that show up.  Deleting the
+reminder annotation on each pass.
 
 
 ## Installation / Tests

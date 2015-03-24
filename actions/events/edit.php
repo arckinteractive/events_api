@@ -177,6 +177,10 @@ if ($has_reminders && !empty($reminders)) {
 	$event->removeReminders(null, null, true); // remove all reminders
 	$event->buildReminders($time, $time + (Util::SECONDS_IN_A_DAY * 2));
 }
+else {
+	unset($event->reminders); // in case of deleting reminder status
+	$event->removeReminders(null, null, true); // remove all reminders
+}
 
 if (!$editing) {
 	// if we're adding to the river we should provide a view

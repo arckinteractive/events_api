@@ -81,19 +81,20 @@ function export_ical_instance($hook, $type, $return, $params) {
  * @param type $params
  */
 function daily_build_reminders($hook, $type, $return, $params) {
+	$time = time();
 	// get the largest reminder offset
 	// @TODO - what if someone sets a stupid reminder for a year or something?
 	// we don't want to be calculating all of those every day...
 	$longest_reminder = Util::getLongestReminder();
-	$longest_lookahead = Util::getDayEnd(time() + $longest_reminder);
-	$default_lookahead = time() + (Util::SECONDS_IN_A_DAY * 2);
+	$longest_lookahead = Util::getDayEnd($time + $longest_reminder);
+	$default_lookahead = Util::getDayEnd($time + (Util::SECONDS_IN_A_DAY * 2));
 
 	$reminder_lookahead = max(array($default_lookahead, $longest_lookahead));
 	
 	// get all events that are upcoming
-	$events = Util::getAllEvents(time(), $reminder_lookahead);
+	$events = Util::getAllEvents($time, $reminder_lookahead);
 
 	foreach ($events as $event) {
-		$event->buildReminders(time(), $reminder_lookahead);
+		$event->buildReminders($time, $reminder_lookahead);
 	}
 }

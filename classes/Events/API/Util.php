@@ -513,7 +513,7 @@ class Util {
 	 * @param ElggUser $user User
 	 * @return string
 	 */
-	public static function getClientTimezone() {
+	public static function getClientTimezone($user = null) {
 
 		if (isset(self::$timezone)) {
 			return self::$timezone;
@@ -523,7 +523,10 @@ class Util {
 
 		$preferred[] = get_input('timezone');
 
-		$user = elgg_get_logged_in_user_entity();
+		if ($user == null) {
+			$user = elgg_get_logged_in_user_entity();
+		}
+		
 		if ($user) {
 			$preferred[] = $user->timezone;
 		}

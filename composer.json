@@ -23,7 +23,6 @@
         "ext-xml": "*",
 		"ext-curl": "*",
 		"composer/installers": "1.*",
-		"rb-cohen/ical-php": "dev-master",
 		"kigkonsult/icalcreator": "dev-master"
 	},
 	"require-dev": {

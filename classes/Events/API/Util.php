@@ -409,6 +409,9 @@ class Util {
 		$timezones = array();
 		$tz_ids = array_keys(self::getTimezones(true, false, 'now', self::TIMEZONE_SORT_OFFSET));
 		foreach ($tz_ids as $tz_id) {
+			if ($tz_id == Util::UTC) {
+				continue;
+			}
 			$info = Util::getTimezoneInfo($tz_id);
 			$cc = $info->country_code;
 			$abbr = $info->abbr;

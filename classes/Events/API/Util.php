@@ -4,8 +4,9 @@ namespace Events\API;
 
 use DateTime;
 use DateTimeZone;
-use ElggUser;
 use ElggBatch;
+use ElggUser;
+use stdClass;
 
 class Util {
 
@@ -153,7 +154,7 @@ class Util {
 
 		return date($format, $time);
 	}
-	
+
 	public static function getLongestReminder() {
 		$md = elgg_get_metadata(array(
 			'type' => 'object',
@@ -163,11 +164,10 @@ class Util {
 			'order_by' => 'reminder desc',
 			'limit' => 1
 		));
-		
+
 		return (int) $md[0]->value;
 	}
-	
-	
+
 	/**
 	 * analog of Calendar::getAllEvents but doesn't limit to a specific calendar
 	 * 
@@ -200,7 +200,7 @@ class Util {
 			),
 			'limit' => false
 		);
-				
+
 		return new ElggBatch('elgg_get_entities', $options);
 	}
 
@@ -361,10 +361,10 @@ class Util {
 			$dta->modify($ts);
 			$dtb->modify($ts);
 		}
-		
+
 		return $dtb->getOffset() - $dta->getOffset();
 	}
-	
+
 	/**
 	 * Returns a list of supported timezones
 	 * Triggers 'timezones','events_api' hook if $filter is set to true
@@ -399,6 +399,63 @@ class Util {
 		}
 
 		return $defaults;
+	}
+
+	/**
+	 * Returns an array of timezones by country
+	 * @return array
+	 */
+	public static function getTimezonesByCountry() {
+		$timezones = array();
+		$tz_ids = array_keys(self::getTimezones(true, false, 'now', self::TIMEZONE_SORT_OFFSET));
+		foreach ($tz_ids as $tz_id) {
+			$info = Util::getTimezoneInfo($tz_id);
+			$cc = $info->country_code;
+			$abbr = $info->abbr;
+			if (!isset($timezones[$cc])) {
+				$timezones[$cc] = array();
+			}
+			$timezones[$cc][] = $info;
+		}
+		ksort($timezones);
+		return $timezones;
+	}
+
+	/**
+	 * Expands timezone ID into a usable source of data about the timezone
+	 * 
+	 * @param string $tz_id Timezone ID e.g. America\New_York
+	 * @return stdClass
+	 */
+	public static function getTimezoneInfo($tz_id) {
+
+		$tz = new \DateTimeZone($tz_id);
+		$location = $tz->getLocation();
+		$country_code = $location['country_code'];
+
+		$dt = new DateTime(null, $tz);
+
+		$region = explode('/', $tz_id);
+		if (sizeof($region) > 1) {
+			array_shift($region);
+		}
+		$region = str_replace('_', ' ', implode(', ', $region));
+
+		$tzinfo = new stdClass();
+		$tzinfo->id = $tz_id;
+		$tzinfo->abbr = $dt->format('T');
+		$tzinfo->country_code = $country_code;
+		$tzinfo->country = elgg_echo("timezone:country:$country_code");
+		$tzinfo->region = $region;
+		$tzinfo->offset = $dt->getOffset();
+		$tzinfo->gmt = $dt->format('\(\G\M\TP\)');
+
+		$name = "timezone:name:$tzinfo->country_code:$tzinfo->abbr";
+		$name_tr = elgg_echo($name);
+		$tzinfo->name = ($name == $name_tr) ? $tzinfo->abbr : $name_tr;
+		$tzinfo->label = "$tzinfo->gmt $tzinfo->name - $tzinfo->region";
+
+		return $tzinfo;
 	}
 
 	/**

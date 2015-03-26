@@ -4,6 +4,8 @@ namespace Events\API;
 
 use ElggObject;
 use ElggBatch;
+use DateTime;
+use DateTimeZone;
 
 /**
  * Event object
@@ -651,5 +653,43 @@ class Event extends ElggObject {
 		}
 		
 		return elgg_delete_annotations($options);
+	}
+	
+	
+	public function getRecurringDescription($viewer = null) {		
+		if (!$this->isRecurring()) {
+			return elgg_echo('events_ui:repeat:once');
+		}
+		if ($viewer === null) {
+			$viewer = elgg_get_logged_in_user_entity();
+		}
+		
+		$timezone = Util::getClientTimezone($viewer);
+		$dt_start = new DateTime("@{$this->start_timestamp}", new DateTimeZone($this->timezone));
+		$dt_start->setTimezone(new DateTimeZone($timezone));
+		
+		$description = elgg_echo('events_ui:repeat:' . $this->repeat_frequency);
+		
+		switch ($this->repeat_frequency) {
+			case 'monthly':
+				if ($this->repeat_monthly_by == 'day_of_month') {
+					$description .= elgg_echo('repeat_ui:repeat_monthly_by:day_of_month:date', array($dt_start->format('jS')));
+				}
+				else {
+					$day = $dt_start->format('j');
+					$weeknum = ceil($day / 7);
+					$weekday = elgg_echo('events:wd:' . $dt_start->format('D'));
+					$suffix = str_replace($weeknum, '', date('jS', mktime(12, 0, 0, 04, $weeknum, 2015)));
+					$description .= elgg_echo('repeat_ui:repeat_monthly_by:day_of_month:weekday', array($weeknum.$suffix, $weekday));
+				}
+				break;
+			
+			case 'weekly':
+				$weekdays = array_map(function($val) { return elgg_echo('events:wd:'.$val); }, (array) $this->repeat_weekly_days);
+				$description .= elgg_echo('repeat_ui:repeat:weekly:weekday', array(implode(', ', $weekdays)));
+				break;
+		}
+		
+		return $description;
 	}
 }

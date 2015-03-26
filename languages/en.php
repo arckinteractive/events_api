@@ -43,6 +43,32 @@ use visibility settings on your custom calendars and individual events',
 	'events:cancel:success' => 'Event has been cancelled',
 	
 	/**
+	 * Repeating event strings
+	 */
+	'events_ui:repeat' => "Repeat",
+	'events_ui:repeats' => "Repeats",
+	'events_ui:repeat:once' => "Non-repeating",
+	'events_ui:repeat:daily' => 'Daily',
+	'events_ui:repeat:weekday' => "Every Weekday (Monday - Friday)",
+	'events_ui:repeat:dailymwf' => "Every Monday, Wednesday, and Friday",
+	'events_ui:repeat:dailytt' => "Every Tuesday and Thursday",
+	'events_ui:repeat:weekly' => "Weekly",
+	'events_ui:repeat:monthly' => "Monthly",
+	'events_ui:repeat:yearly' => "Yearly",
+	'repeat_ui:repeat_ends' => "Ends",
+	'events_ui:repeat_ends:never' => "Never",
+	'events_ui:repeat_ends:after' => "After %s occurrences",
+	'events_ui:repeat_ends:on' => "On %s",
+	
+	'repeat_ui:repeat:weekly:weekday' => ' on %s',
+	'repeat_ui:repeat_monthly_by' => 'Repeat by',
+	'repeat_ui:repeat_monthly_by:day_of_month' => 'Day of the month',
+	'repeat_ui:repeat_monthly_by:day_of_month:date' => ' on the %s day of the month',
+	'repeat_ui:repeat_monthly_by:day_of_month:weekday' => ' on the %s %s of the month',
+	'repeat_ui:repeat_monthly_by:day_of_week' => 'Day of the week',
+	'repeat_ui:repeat_weekly_days' => 'Repeat on',
+	
+	/**
 	 * Timezone names
 	 */
 	'timezone:name:US:AST' => 'Atlantic Standard Time',

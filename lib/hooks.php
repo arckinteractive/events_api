@@ -2,6 +2,9 @@
 
 namespace Events\API;
 
+use DateTime;
+use DateTimeZone;
+
 /**
  * Determines who can add events to a calendar
  * We are using ElggObject::canWriteToContainer() to determine Calendar::canAddEvent(),
@@ -53,9 +56,16 @@ function export_ical_instance($hook, $type, $return, $params) {
 	if ($consumer == 'ical') {
 		$event = $instance->getEvent();
 		$calendar = $instance->getCalendar();
+
+		$dt_start = new DateTime(null, new DateTimeZone(Util::UTC));
+		$dt_end = new DateTime(null, new DateTimeZone(Util::UTC));
+
+		$dt_start->setTimestamp($instance->getStartTimestamp());
+		$dt_end->setTimestamp($instance->getEndTimestamp());
+
 		$return = array_filter(array(
-			'dtstart' => $instance->getStart(),
-			'dtend' => $instance->getEnd(),
+			'dtstart' => $dt_start->format("Ymd\THis\Z"),
+			'dtend' => $dt_end->format("Ymd\THis\Z"),
 			'class' => 'PUBLIC',
 			'organizer' => $event->getHost()->name,
 			'uid' => implode('-', array($event->guid, $instance->getStartTimestamp())),
@@ -66,7 +76,7 @@ function export_ical_instance($hook, $type, $return, $params) {
 			'reminders' => (array) $event->reminder,
 		));
 	}
-
+	
 	return $return;
 }
 

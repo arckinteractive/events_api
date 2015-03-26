@@ -163,8 +163,7 @@ class Calendar extends ElggObject {
 	 */
 	public static function compareInstancesByStartTime($a, $b) {
 		$start_a = $a->getStartTimestamp();
-		$start_b = $a->getStartTimestamp();
-
+		$start_b = $b->getStartTimestamp();
 		if ($start_a == $start_b) {
 			return 0;
 		}

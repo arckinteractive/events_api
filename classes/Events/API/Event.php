@@ -664,9 +664,10 @@ class Event extends ElggObject {
 			$viewer = elgg_get_logged_in_user_entity();
 		}
 		
-		$timezone = Util::getClientTimezone($viewer);
-		$dt_start = new DateTime("@{$this->start_timestamp}", new DateTimeZone($this->timezone));
-		$dt_start->setTimezone(new DateTimeZone($timezone));
+		$c_timezone = Util::getClientTimezone($viewer);
+		$timezone = $this->timezone ? $this->timezone : Util::UTC;
+		$dt_start = new DateTime("@{$this->start_timestamp}", new DateTimeZone($timezone));
+		$dt_start->setTimezone(new DateTimeZone($c_timezone));
 		
 		$description = elgg_echo('events_ui:repeat:' . $this->repeat_frequency);
 		

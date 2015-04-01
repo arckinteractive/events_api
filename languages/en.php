@@ -11,6 +11,7 @@ $english = array(
 	'events:error:invalid:deltas' => "Invalid move parameters",
 	'event_api:event:updated' => "Your event has been updated",
 	'events:success:deleted' => "Event has been deleted",
+	'events:error:permissions' => "You don't have permission to change this event",
 	'events:error:public_calendar_delete' => 'You are trying to delete a public calendar,
 which is not allowed.
 		For better access control,

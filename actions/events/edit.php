@@ -133,11 +133,6 @@ switch ($event->repeat_frequency) {
 
 $event->repeat_end_timestamp = $event->calculateRepeatEndTimestamp();
 
-// recurring events can not finish recurring before event ends
-if ($event->repeat_end_timestamp && $event->repeat_end_timestamp < $event->getEndTimestamp()) {
-	$event->repeat_end_timestamp = $event->getEndTimestamp();
-}
-
 if (!$event->save()) {
 	register_error(elgg_echo('events:error:save'));
 	forward($calendar->getURL());

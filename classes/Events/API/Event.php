@@ -116,6 +116,8 @@ class Event extends ElggObject {
 		$this->end_time = $params['new_end_time'];
 		$this->end_delta = $params['new_end_timestamp'] - $params['new_start_timestamp']; // how long this is in seconds
 		
+		$this->repeat_end_timestamp = $this->calculateRepeatEndTimestamp();
+		
 		// rebuild reminders for the next 2 days
 		$time = time();
 		$this->removeReminders(null, null, true); // remove all reminders
@@ -137,6 +139,7 @@ class Event extends ElggObject {
 		$this->end_time = $params['new_end_time'];
 		$this->end_delta = $params['new_end_timestamp'] - $this->getStartTimestamp(); // how long this is in seconds
 
+		$this->repeat_end_timestamp = $this->calculateRepeatEndTimestamp();
 		return true;
 	}
 
@@ -234,7 +237,7 @@ class Event extends ElggObject {
 		$end_timestamp = $this->getEndTimestamp();
 
 		$time_diff = $end_timestamp - $start_timestamp;
-		$new_start_timestamp = $start_timestamp + ($day_delta * Util::SECONDS_IN_AN_HOUR * $day_delta) + ($minute_delta * Util::SECONDS_IN_A_MINUTE);
+		$new_start_timestamp = $start_timestamp + ($day_delta * Util::SECONDS_IN_A_DAY) + ($minute_delta * Util::SECONDS_IN_A_MINUTE);
 		$new_end_timestamp = $new_start_timestamp + $time_diff;
 
 		$params = array(
@@ -416,20 +419,29 @@ class Event extends ElggObject {
 				if ($repeat_end_timestamp === false) {
 					$repeat_end_timestamp = 0; //@TODO - what else could we do here?
 				}
-				return $repeat_end_timestamp;
-
+				$return = $repeat_end_timestamp;
+				break;
 			case Util::REPEAT_END_AFTER:
-				return $this->calculateEndAfterTimestamp($this->repeat_end_after);
-
+				$return = $this->calculateEndAfterTimestamp($this->repeat_end_after);
+				break;
 			case Util::REPEAT_END_NEVER :
-				return 0;
-
+				$return = 0;
+				break;
 			default :
 				if ($this->repeat) {
-					return 0;
+					$return = 0;
 				}
-				return $this->getStartTimestamp();
+				else {
+					$return = $this->getStartTimestamp();
+				}
+			break;
 		}
+		
+		if ($return && $return < $this->getEndTimestamp()) {
+			$return = $this->getEndTimestamp();
+		}
+		
+		return $return;
 	}
 
 	/**
@@ -554,9 +566,11 @@ class Event extends ElggObject {
 	 * @return int|false
 	 */
 	public function getNextOccurrence($after_timestamp = null) {
-		if (!$after_timestamp) {
+		if ($after_timestamp === null) {
 			$after_timestamp = time();
 		}
+		
+		$after_timestamp = (int) $after_timestamp;
 
 		$next = false;
 		if ($this->isRecurring()) {
@@ -570,6 +584,40 @@ class Event extends ElggObject {
 		}
 
 		return $next;
+	}
+	
+	
+	/**
+	 * Returns the timestamp of the previous event occurence
+	 * Returns false if there are no past occurrences
+	 *
+	 * @param int $before_timestamp Find previous occurrence
+	 * @return int|false
+	 */
+	public function getLastOccurrence($before_timestamp = null) {
+		if ($before_timestamp === null) {
+			$before_timestamp = time();
+		}
+		
+		$before_timestamp = (int) $before_timestamp;
+		
+		$prev = false;
+		if ($this->isRecurring()) {
+			$starttimes = $this->getStartTimes($this->getStartTimestamp(), $before_timestamp);
+			
+			if ($starttimes) {
+				$prev = end($starttimes);
+			}
+		}
+		else {
+			$prev = $this->getStartTimestamp();
+			
+			if ($prev > $before_timestamp) {
+				$prev = false; // there is no occurrence before the timestamp
+			}
+		}
+		
+		return $prev;
 	}
 
 	/**

@@ -6,6 +6,7 @@ use ElggObject;
 use ElggBatch;
 use DateTime;
 use DateTimeZone;
+use vcalendar;
 
 /**
  * Event object
@@ -107,7 +108,7 @@ class Event extends ElggObject {
 	 */
 	public function move($params) {
 		//update the event
-		$this->all_day = $params['all_day'];
+		$this->all_day = elgg_extract('all_day', $params, false);
 		$this->start_timestamp = $params['new_start_timestamp'];
 		$this->end_timestamp = $params['new_end_timestamp'];
 		$this->start_date = $params['new_start_date'];
@@ -231,7 +232,7 @@ class Event extends ElggObject {
 	 * @param bool $all_day      All day event?
 	 * @return array
 	 */
-	public function getMoveParams($day_delta, $minute_delta, $all_day) {
+	public function getMoveParams($day_delta, $minute_delta, $all_day = false) {
 		// calculate new dates
 		$start_timestamp = $this->getStartTimestamp();
 		$end_timestamp = $this->getEndTimestamp();
@@ -285,7 +286,10 @@ class Event extends ElggObject {
 	 * @param int $endtime  Range end UNIX timestamp
 	 * @return array
 	 */
-	public function getStartTimes($starttime = 0, $endtime = 0) {
+	public function getStartTimes($starttime = 0, $endtime = 0, $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
 
 		if (!$this->isRecurring()) {
 			return array($this->getStartTimestamp());
@@ -740,5 +744,85 @@ class Event extends ElggObject {
 		}
 		
 		return $description;
+	}
+	
+	/**
+	 * 
+	 * @param string $base_url
+	 * @param array $params
+	 * @return string the url
+	 */
+	public function getIcalURL($base_url = '', array $params = array()) {
+
+		$params['view'] = 'ical';
+
+		$url = elgg_http_add_url_query_elements($base_url, $params);
+		return elgg_normalize_url($url);
+	}
+	
+	/**
+	 * Returns an iCal feed for this event
+	 *
+	 * @param int    $starttime Range start timestamp
+	 * @param int    $endtime   Range end timestamp
+	 * @param string $filename  Filename used for output file
+	 * @return string
+	 */
+	public function toIcal($starttime = null, $endtime = null, $filename = 'event.ics') {
+
+		if (is_null($starttime)) {
+			$starttime = $this->getNextOccurrence();
+		}
+
+		$eventInstance = new EventInstance($this, $starttime); //$this->getAllEventInstances($starttime, $endtime, true, 'ical');
+		$instance = $eventInstance->export('ical');
+		
+		$config = array(
+			'unique_id' => $this->guid,
+			// setting these explicitly until icalcreator bug #14 is solved
+			'allowEmpty' => true,
+			'nl' => "\r\n",
+			'format' => 'iCal',
+			'delimiter' => DIRECTORY_SEPARATOR,
+			'filename' => $filename, // this is last until #14 is solved
+		);
+
+		$v = new vcalendar($config);
+		$v->setProperty('method', 'PUBLISH');
+		$v->setProperty("X-WR-CALNAME", implode(' - ', array(elgg_get_config('sitename'), $this->getDisplayName())));
+		$v->setProperty("X-WR-CALDESC", strip_tags($this->description));
+		$v->setProperty("X-WR-TIMEZONE", Util::UTC);
+
+		$e = & $v->newComponent('vevent');
+
+		$organizer = elgg_extract('organizer', $instance, array());
+		unset($instance['organizer']);
+
+		$reminders = elgg_extract('reminders', $instance, array());
+		unset($instance['reminders']);
+
+		foreach ($instance as $property => $value) {
+			$e->setProperty($property, $value);
+		}
+
+		if (!empty($organizer)) {
+			if (is_email_address($organizer)) {
+				$e->setProperty('organizer', $organizer);
+			} else {
+				$e->setProperty('organizer', elgg_get_site_entity()->email, array(
+					'CN' => $organizer,
+				));
+			}
+		}
+
+		if (!empty($reminders)) {
+			foreach ($reminders as $reminder) {
+				$a = & $e->newComponent('valarm');
+				$a->setProperty('action', 'DISPLAY');
+				$a->setProperty('trigger', "-PT{$reminder}S");
+			}
+		}
+
+		$v->returnCalendar();
 	}
 }

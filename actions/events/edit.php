@@ -44,23 +44,17 @@ if (!$event instanceof Event) {
 	$editing = false;
 }
 
-$title = htmlspecialchars(get_input('title', elgg_echo('events:edit:title:placeholder')), ENT_QUOTES, 'UTF-8');
+$title = strip_tags(get_input('title', elgg_echo('events:edit:title:placeholder')));
 $location = get_input('location');
 $description = get_input('description');
 $start_date = get_input('start_date');
 $end_date = get_input('end_date', $start_date);
 $timezone = get_input('timezone', Util::UTC);
 
-$all_day = get_input('all_day');
-if ($all_day) {
-	// normalize so our queries produce valid results
-	$start_time = '12:00am';
-	$end_time = '11:59pm';
-} else {
-	$start_time = get_input('start_time', '12:00am');
-	$start_time_ts = strtotime($start_time);
-	$end_time = get_input('end_time', date('g:ia', $start_time + Util::SECONDS_IN_AN_HOUR));
-}
+$start_time = get_input('start_time', '12:00am');
+$start_time_ts = strtotime($start_time);
+$end_time = get_input('end_time', date('g:ia', $start_time + Util::SECONDS_IN_AN_HOUR));
+
 $repeat = get_input('repeat', false);
 $repeat_end_after = get_input('repeat_end_after');
 $repeat_end_on = get_input('repeat_end_on');
@@ -79,12 +73,12 @@ $end_timestamp_iso = $dt->format('c');
 if ($start_timestamp === false || $end_timestamp === false) {
 	// something was the wrong format
 	register_error(elgg_echo('events:error:start_end_date:invalid_format'));
-	forward($calendar->getURL());
+	forward(REFERER);
 }
 
 if ($end_timestamp < $start_timestamp) {
 	register_error(elgg_echo('events:error:start_end_date'));
-	forward($calendar->getURL());
+	forward(REFERER);
 }
 
 // lets attempt to create the event
@@ -105,7 +99,7 @@ $event->start_timestamp_iso = $start_timestamp_iso;
 $event->end_timestamp_iso = $end_timestamp_iso;
 
 $event->end_delta = $end_timestamp - $start_timestamp; // how long the event is in seconds
-$event->all_day = $all_day ? 1 : 0;
+$event->all_day = 0;
 
 // repeating data
 $event->repeat = ($repeat) ? 1 : 0;
@@ -135,7 +129,7 @@ $event->repeat_end_timestamp = $event->calculateRepeatEndTimestamp();
 
 if (!$event->save()) {
 	register_error(elgg_echo('events:error:save'));
-	forward($calendar->getURL());
+	forward(REFERER);
 }
 
 $event->setLocation($location);
@@ -186,8 +180,12 @@ elgg_clear_sticky_form('events/edit');
 
 system_message(elgg_echo('events:success:save'));
 
+$forwardto = get_input('forward_to');
 if ($calendar instanceof Calendar) {
 	$calendar->addEvent($event);
+}
+
+if ($calendar instanceof Calendar && $forwardto != 'event') {
 	forward($calendar->getURL());
 } else {
 	forward($event->getURL());

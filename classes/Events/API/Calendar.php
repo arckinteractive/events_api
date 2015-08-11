@@ -114,7 +114,6 @@ class Calendar extends ElggObject {
 	 *    'title' => $title,
 	 *    'description' => $description,
 	 *    'url' => $url,
-	 *    'allDay' => $all_day,
 	 *    ...
 	 *   ),
 	 *  );
@@ -126,8 +125,19 @@ class Calendar extends ElggObject {
 	 * @param string $consumer  Consumer name (passed to the export hook, so plugins can decide on exportable values)
 	 * @return EventsInstance[]|array
 	 */
-	public function getAllEventInstances($starttime = null, $endtime = null, $export = true, $consumer = '') {
+	public function getAllEventInstances($starttime = null, $endtime = null, $export = true, $consumer = '', $tz = null) {
 		$instances = array();
+		
+		if (!Util::isValidTimezone($tz)) {
+			if (elgg_is_logged_in()) {
+				// if logged in use the timezone settings of the current user
+				$tz = Util::getClientTimezone();
+			}
+			else {
+				// use timezone of calendar owner
+				$tz = Util::getClientTimezone($this->getOwnerEntity());
+			}
+		}
 
 		$events = $this->getAllEvents($starttime, $endtime);
 		foreach ($events as $event) {
@@ -135,7 +145,7 @@ class Calendar extends ElggObject {
 			if (!$event instanceof Event) {
 				continue;
 			}
-			$start_times = $event->getStartTimes($starttime, $endtime);
+			$start_times = $event->getStartTimes($starttime, $endtime, $tz);
 			foreach ($start_times as $start_time) {
 				$instance = new EventInstance($event, $start_time);
 				$instance->setCalendar($this);
@@ -397,11 +407,24 @@ class Calendar extends ElggObject {
 
 			$e = & $v->newComponent('vevent');
 
+			$organizer = elgg_extract('organizer', $instance, array());
+			unset($instance['organizer']);
+
 			$reminders = elgg_extract('reminders', $instance, array());
 			unset($instance['reminders']);
 
 			foreach ($instance as $property => $value) {
 				$e->setProperty($property, $value);
+			}
+
+			if (!empty($organizer)) {
+				if (is_email_address($organizer)) {
+					$e->setProperty('organizer', $organizer);
+				} else {
+					$e->setProperty('organizer', elgg_get_site_entity()->email, array(
+						'CN' => $organizer,
+					));
+				}
 			}
 
 			if (!empty($reminders)) {

@@ -8,7 +8,6 @@ $event = get_entity($guid);
 
 $day_delta = get_input('day_delta', 0);
 $minute_delta = get_input('minute_delta', 0);
-$all_day = get_input('all_day', 0);
 
 if (!$event instanceof Event) {
 	register_error(elgg_echo('events:error:invalid:guid'));
@@ -25,7 +24,7 @@ if (!is_numeric($day_delta) || !is_numeric($minute_delta)) {
 	forward(REFERER);
 }
 
-$params = $event->getMoveParams($day_delta, $minute_delta, $all_day);
+$params = $event->getMoveParams($day_delta, $minute_delta);
 
 if (!elgg_trigger_event('events_api', 'event:move', $params)) {
 	// it's expected that any return of false would provide their own error

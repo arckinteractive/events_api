@@ -70,8 +70,12 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getDayStart($ts = 'now', $format = 'U') {
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+	public static function getDayStart($ts = 'now', $format = 'U', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		$dt->setTime(0, 0, 0);
 		return $dt->format($format);
@@ -84,8 +88,12 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getDayEnd($ts = 'now', $format = 'U') {
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+	public static function getDayEnd($ts = 'now', $format = 'U', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		$dt->setTime(23, 59, 59);
 		return $dt->format($format);
@@ -98,8 +106,12 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getMonthStart($ts = 'now', $format = 'U') {
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+	public static function getMonthStart($ts = 'now', $format = 'U', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 
 		$month = (int) $dt->format('m'); // month
@@ -118,9 +130,12 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getMonthEnd($ts = 'now', $format = 'U') {
+	public static function getMonthEnd($ts = 'now', $format = 'U', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
 
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 
 		$dt->modify('+1 month');
@@ -143,16 +158,19 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getTime($ts = 'now', $format = 'U') {
-
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+	public static function getTime($ts = 'now', $format = 'U', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 
 		$time = $dt->format('H') * self::SECONDS_IN_AN_HOUR;
 		$time += $dt->format('i') * self::SECONDS_IN_A_MINUTE;
 		$time += $dt->format('s');
 
-		return date($format, $time);
+		return $dt->setTimestamp($time)->format($format);
 	}
 
 	public static function getLongestReminder() {
@@ -211,12 +229,17 @@ class Util {
 	 * @param mixed $ts_day  Date/time string containing day information
 	 * @return int
 	 */
-	public static function getTimeOfDay($ts_time = 0, $ts_day = null, $format = 'U') {
+	public static function getTimeOfDay($ts_time = 0, $ts_day = null, $format = 'U', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$time = Util::getTime($ts_time, 'U', $tz);
+		$day_start = Util::getDayStart($ts_day, 'U', $tz);
 
-		$time = Util::getTime($ts_time);
-		$day_start = Util::getDayStart($ts_day);
+		$dt = new DateTime(null, new DateTimeZone($tz));
+		return $dt->setTimestamp($time + $day_start)->format($format);
 
-		return date($format, $time + $day_start);
 	}
 
 	/**
@@ -226,8 +249,12 @@ class Util {
 	 * @param string $format Format of the return value
 	 * @return string
 	 */
-	public static function getDayOfWeek($ts = 'now', $timezone = Util::UTC, $format = 'D') {
-		$dt = new DateTime(null, new DateTimeZone($timezone));
+	public static function getDayOfWeek($ts = 'now', $tz = null, $format = 'D') {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		return $dt->format($format);
 	}
@@ -238,11 +265,15 @@ class Util {
 	 * @param mixed $ts Date/time value
 	 * @return int
 	 */
-	public static function getWeekOfMonth($ts = 'now') {
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+	public static function getWeekOfMonth($ts = 'now', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
-		$week_num_ts = date('W', $dt->getTimestamp());
-		$week_num_month_start = date('W', self::getMonthStart($ts));
+		$week_num_ts = $dt->format('W');
+		$week_num_month_start = $dt->setTimestamp(self::getMonthStart($ts, 'U', $tz))->format('W');
 		return $week_num_ts - $week_num_month_start + 1;
 	}
 
@@ -252,8 +283,11 @@ class Util {
 	 * @param mixed $ts Date/time value
 	 * @return int
 	 */
-	public static function getWeekDayNthInMonth($ts = 'now') {
-		$dt = new DateTime(null, new DateTimeZone(Util::UTC));
+	public static function getWeekDayNthInMonth($ts = 'now', $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		$dt = new DateTime(null, new DateTimeZone($tz));
 		(is_int($ts)) ? $dt->setTimestamp($ts) : $dt->modify($ts);
 		return ceil($dt->format('j') / 7);
 	}
@@ -265,8 +299,14 @@ class Util {
 	 * @param int $ts2 Second timestamp
 	 * @return bool
 	 */
-	public static function isOnSameDayOfWeek($ts1 = 0, $ts2 = 0) {
-		return date('D', $ts1) == date('D', $ts2);
+	public static function isOnSameDayOfWeek($ts1 = 0, $ts2 = 0, $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		$dt1 = new DateTime(null, new DateTimeZone($tz));
+		$dt2 = new DateTime(null, new DateTimeZone($tz));
+
+		return $dt1->setTimestamp($ts1)->format('D') == $dt2->setTimestamp($ts2)->format('D');
 	}
 
 	/**
@@ -276,8 +316,13 @@ class Util {
 	 * @param int $ts2 Second timestamp
 	 * @return bool
 	 */
-	public static function isOnSameDayOfMonth($ts1 = 0, $ts2 = 0) {
-		return date('j', $ts1) == date('j', $ts2);
+	public static function isOnSameDayOfMonth($ts1 = 0, $ts2 = 0, $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		$dt1 = new DateTime(null, new DateTimeZone($tz));
+		$dt2 = new DateTime(null, new DateTimeZone($tz));
+		return $dt1->setTimestamp($ts1)->format('j') == $dt2->setTimestamp($ts2)->format('j');
 	}
 
 	/**
@@ -287,8 +332,14 @@ class Util {
 	 * @param int $ts2 Second timestamp
 	 * @return bool
 	 */
-	public static function isOnSameDayOfYear($ts1 = 0, $ts2 = 0) {
-		return date('m-j', $ts1) == date('m-j', $ts2);
+	public static function isOnSameDayOfYear($ts1 = 0, $ts2 = 0, $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		$dt1 = new DateTime(null, new DateTimeZone($tz));
+		$dt2 = new DateTime(null, new DateTimeZone($tz));
+		return $dt1->setTimestamp($ts1)->format('m-j') == $dt2->setTimestamp($ts2)->format('m-j');
 	}
 
 	/**
@@ -298,11 +349,15 @@ class Util {
 	 * @param int $ts2 Second timestamp
 	 * @return bool
 	 */
-	public static function isOnSameWeekDayOfMonth($ts1 = 0, $ts2 = 0) {
-		if (!self::isOnSameDayOfWeek($ts1, $ts2)) {
+	public static function isOnSameWeekDayOfMonth($ts1 = 0, $ts2 = 0, $tz = null) {
+		if (!Util::isValidTimezone($tz)) {
+			$tz = Util::getClientTimezone();
+		}
+		
+		if (!self::isOnSameDayOfWeek($ts1, $ts2, $tz)) {
 			return false;
 		}
-		return self::getWeekDayNthInMonth($ts1) == self::getWeekDayNthInMonth($ts2);
+		return self::getWeekDayNthInMonth($ts1, $tz) == self::getWeekDayNthInMonth($ts2, $tz);
 	}
 
 	/**
@@ -468,7 +523,17 @@ class Util {
 	 * @return bool
 	 */
 	public static function isValidTimezone($timezone) {
-		return in_array($timezone, DateTimeZone::listIdentifiers());
+		static $cache;
+		if (!is_array($cache)) {
+			$cache = array();
+		}
+		
+		if (isset($cache[$timezone])) {
+			return $cache[$timezone];
+		}
+		
+		$cache[$timezone] = in_array($timezone, DateTimeZone::listIdentifiers());
+		return $cache[$timezone];
 	}
 
 	/**

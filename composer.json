@@ -25,11 +25,6 @@
 		"composer/installers": "1.*",
 		"kigkonsult/icalcreator": "dev-master"
 	},
-	"require-dev": {
-		"phpunit/phpunit": "4.*",
-		"elgg/sniffs": "dev-master",
-		"squizlabs/php_codesniffer": "1.5.*"
-	},
 	"autoload": {
         "psr-0": {
             "": "classes/"

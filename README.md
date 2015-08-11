@@ -68,7 +68,6 @@ This action moves an event
 
 Required inputs are:
 - ```guid```			INT the guid of the event
-- ```all_day```			BOOL whether to set the event as all day
 - ```day_delta```		INT how far forward/back to move the event
 - ```minute_delta```	INT how far forward/back to move the event
 

@@ -528,7 +528,8 @@ class Calendar extends ElggObject {
 	 * @return string
 	 */
 	protected function generateToken() {
-		return md5($this->guid . ElggCrypto::getRandomString(31));
+		$crypto = new ElggCrypto();
+		return md5($this->guid . $crypto->getRandomString(31));
 	}
 
 	/**

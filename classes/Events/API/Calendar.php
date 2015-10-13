@@ -76,8 +76,8 @@ class Calendar extends ElggObject {
 
 		$dbprefix = elgg_get_config('dbprefix');
 
-		$mds_name = add_metastring('start_timestamp');
-		$mdre_name = add_metastring('repeat_end_timestamp');
+		$mds_name = elgg_get_metastring_id('start_timestamp');
+		$mdre_name = elgg_get_metastring_id('repeat_end_timestamp');
 
 		$options = array(
 			'type' => 'object',
@@ -203,10 +203,10 @@ class Calendar extends ElggObject {
 		$dbprefix = elgg_get_config('dbprefix');
 
 		// for performance we'll denormalize metastrings first
-		$mdr_name = add_metastring('repeat');
-		$mdr_val = add_metastring(1);
-		$mds_name = add_metastring('start_timestamp');
-		$mdre_name = add_metastring('repeat_end_timestamp');
+		$mdr_name = elgg_get_metastring_id('repeat');
+		$mdr_val = elgg_get_metastring_id(1);
+		$mds_name = elgg_get_metastring_id('start_timestamp');
+		$mdre_name = elgg_get_metastring_id('repeat_end_timestamp');
 		$options = array(
 			'type' => 'object',
 			'subtype' => Event::SUBTYPE,
@@ -267,10 +267,10 @@ class Calendar extends ElggObject {
 		$dbprefix = elgg_get_config('dbprefix');
 
 		// for performance we'll denormalize metastrings first
-		$mdr_name = add_metastring('repeat');
-		$mdr_val = add_metastring(0);
-		$mds_name = add_metastring('start_timestamp');
-		$mde_name = add_metastring('end_timestamp');
+		$mdr_name = elgg_get_metastring_id('repeat');
+		$mdr_val = elgg_get_metastring_id(0);
+		$mds_name = elgg_get_metastring_id('start_timestamp');
+		$mde_name = elgg_get_metastring_id('end_timestamp');
 		$options = array(
 			'type' => 'object',
 			'subtype' => Event::SUBTYPE,

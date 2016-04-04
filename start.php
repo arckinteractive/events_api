@@ -4,7 +4,7 @@ namespace Events\API;
 
 const UPGRADE_VERSION = 20141215;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/autoloader.php';
 
 require_once __DIR__ . '/lib/events.php';
 require_once __DIR__ . '/lib/hooks.php';

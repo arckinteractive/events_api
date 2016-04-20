@@ -21,4 +21,4 @@ function elgg_get_config($name) {
 	return $CONFIG->$name;
 }
 
-require_once dirname(__DIR__) . "/vendor/autoload.php";
+require_once dirname(__DIR__) . "/autoloader.php";

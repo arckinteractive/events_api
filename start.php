@@ -24,6 +24,7 @@ function init() {
 	elgg_register_plugin_hook_handler('export:instance', 'events_api', __NAMESPACE__ . '\\export_ical_instance');
 	elgg_register_plugin_hook_handler('cron', 'daily', __NAMESPACE__ . '\\daily_build_reminders');
 
+	elgg_register_event_handler('create', 'object', __NAMESPACE__ . '\\create_event_handler');
 	elgg_register_event_handler('delete', 'object', __NAMESPACE__ . '\\delete_event_handler');
 
 	elgg_register_action('calendar/edit', __DIR__ . '/actions/calendar/edit.php');

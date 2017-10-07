@@ -100,6 +100,7 @@ class EventInstance {
 	 */
 	public function export($consumer = '') {
 		$event = $this->getEvent();
+		$object = (array) $event->toObject();
 		$export = array(
 			'url' => $event->getURL($this->getStartTimestamp(), $this->getCalendar()->guid),
 			'start' => $this->getStart(),
@@ -109,15 +110,10 @@ class EventInstance {
 			'location' => $event->getLocation(),
 		);
 
-		$keys = $event->getExportableValues();
-		foreach ($keys as $key) {
-			$export[$key] = $event->$key;
-		}
-
 		$export = elgg_trigger_plugin_hook('export:instance', 'events_api', array(
 			'instance' => $this,
 			'consumer' => $consumer,
-				), $export);
+				), array_merge($object, $export));
 
 		array_walk_recursive($export, function (&$value) {
 			$value = (is_string($value)) ? html_entity_decode($value, ENT_QUOTES, 'UTF-8') : $value;

@@ -61,3 +61,23 @@ function delete_event_handler($event, $type, $entity) {
 
 	return true;
 }
+
+
+/**
+ * Add all events to site calendar
+ *
+ * @param string $event  "create"
+ * @param string $type   "object"
+ * @param Event  $object Event object
+ * @return void
+ */
+function create_event_handler($event, $type, $object) {
+
+	if (!$object instanceof Event) {
+		return;
+	}
+	
+	$site = elgg_get_site_entity();
+	$calendar = Calendar::getPublicCalendar($site);
+	$calendar->addEvent($object);
+}

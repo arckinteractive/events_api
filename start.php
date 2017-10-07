@@ -6,10 +6,6 @@ const UPGRADE_VERSION = 20141215;
 
 require_once __DIR__ . '/autoloader.php';
 
-require_once __DIR__ . '/lib/events.php';
-require_once __DIR__ . '/lib/hooks.php';
-require_once __DIR__ . '/lib/functions.php';
-
 elgg_register_event_handler('init', 'system', __NAMESPACE__ . '\\init');
 elgg_register_event_handler('upgrade', 'system', __NAMESPACE__ . '\\upgrade');
 

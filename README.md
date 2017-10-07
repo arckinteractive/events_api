@@ -1,4 +1,4 @@
-# Events API
+# Events API ![Elgg 2.3](https://img.shields.io/badge/Elgg-2.3-orange.svg?style=flat-square)
 
 This plugin provides a data structure and convenience function for building an events application.
 As each project's requirements tend to be different this is made as generic as extensible as possible

@@ -1,31 +1,36 @@
 {
-	"name": "arckinteractive/events_api",
-	"type": "elgg-plugin",
-	"description": "A robust data model and api for events",
-	"homepage": "http://arckinteractive.com",
-	"keywords": [
-		"elgg", "plugin", "events"
-	],
-	"license": "GPL-2.0",
-	"authors": [
-		{
-			"name": "Matt Beckett",
-			"email": "matt@arckinteractive.com"
-		},
-		{
-			"name": "Ismayil Khayredinov",
-			"email": "ismayil@arckinteractive.com"
-		}
-	],
-	"require": {
-		"php": ">=5.3.3",
-		"ext-json": "*",
+    "name": "arckinteractive/events_api",
+    "type": "elgg-plugin",
+    "description": "A robust data model and api for events",
+    "homepage": "http://arckinteractive.com",
+    "keywords": [
+        "elgg",
+        "plugin",
+        "events"
+    ],
+    "license": "GPL-2.0",
+    "authors": [
+        {
+            "name": "Matt Beckett",
+            "email": "matt@arckinteractive.com"
+        },
+        {
+            "name": "Ismayil Khayredinov",
+            "email": "ismayil@arckinteractive.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.3",
+        "ext-json": "*",
         "ext-xml": "*",
-		"ext-curl": "*",
-		"composer/installers": "1.*",
-		"kigkonsult/icalcreator": "dev-master"
-	},
-	"autoload": {
+        "ext-curl": "*",
+        "composer/installers": "1.*",
+        "kigkonsult/icalcreator": "dev-master"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~4.1"
+    },
+    "autoload": {
         "psr-0": {
             "": "classes/"
         }

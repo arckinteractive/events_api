@@ -14,6 +14,7 @@ class UtilTest extends PHPUnit_Framework_TestCase {
 	protected $util;
 
 	public function setUp() {
+		date_default_timezone_set('UTC');
 		$this->util = new Util;
 	}
 

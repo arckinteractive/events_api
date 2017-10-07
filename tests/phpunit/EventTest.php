@@ -12,6 +12,7 @@ class EventTest extends PHPUnit_Framework_TestCase {
 	protected $event;
 
 	public function setUp() {
+		date_default_timezone_set('UTC');
 		$this->event = new Event;
 	}
 

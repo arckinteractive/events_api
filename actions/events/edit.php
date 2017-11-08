@@ -32,7 +32,7 @@ $calendar_guid = get_input('calendar');
 $calendar = get_entity($calendar_guid);
 
 if (!$calendar instanceof Calendar) {
-	$calendar = Calendar::getPublicCalendar($user);
+	$calendar = Calendar::getPublicCalendar($container);
 }
 
 $editing = true;

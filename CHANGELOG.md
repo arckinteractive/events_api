@@ -1,3 +1,15 @@
+<a name="2.0.1"></a>
+## [2.0.1](https://github.com/arckinteractive/events_api/compare/2.0.0...v2.0.1) (2017-11-20)
+
+
+### Bug Fixes
+
+* **actions:** group events no longer misplaced under user ([0852225](https://github.com/arckinteractive/events_api/commit/0852225))
+* **deps:** bind iCalCreator to legacy 2.22 version ([82489a9](https://github.com/arckinteractive/events_api/commit/82489a9)), closes [#17](https://github.com/arckinteractive/events_api/issues/17)
+* **deps:** exact tag match ([9c6685f](https://github.com/arckinteractive/events_api/commit/9c6685f))
+
+
+
 <a name="2.0.0"></a>
 # 2.0.0 (2017-10-07)
 
